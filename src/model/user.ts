@@ -1,4 +1,4 @@
-type UserId = string;
+export type UserId = string;
 
 export class User {
   Id: UserId;

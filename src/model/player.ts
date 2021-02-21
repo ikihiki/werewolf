@@ -3,7 +3,7 @@ import { User } from "./user";
 export type Camp = "Werewolf Side" | "Citizen Side";
 export type Position = "Werewolf" | "Psycho" | "Citizen" | "FortuneTeller" | "Knight" | "Psychic" | "Sharer";
 
-
+export type PlayerId = string;
 export class Player {
     User: User;
     IsSurvival: boolean;
