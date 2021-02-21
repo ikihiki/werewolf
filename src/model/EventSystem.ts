@@ -1,4 +1,5 @@
-type GameId = string;
+import { GameId } from './game';
+
 type EventId = string;
 type PlayerId = string;
 
