@@ -1,5 +1,7 @@
 import { User } from "./user";
 
+
+
 export class Player {
   User: User;
   IsSurvival: boolean;
