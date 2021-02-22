@@ -2,9 +2,9 @@ import React from 'react';
 import logo from './logo.svg';
 import './App.css';
 import { useSelector } from 'react-redux';
-import { Game, gameSelector, playersSelector, usersSelector, votingTargetPlayersSeledtor } from 'werewolf/dest/game';
+import { Game, gameSelector, playersSelector, survivalPlayersSelector, usersSelector, votingTargetPlayersSeledtor } from 'werewolf/dest/game';
 import { UserId } from 'werewolf/dest/user';
-import { PlayerId } from 'werewolf/dest/player';
+import { PlayerId, PlayerState, Position } from 'werewolf/dest/player';
 import { Button, Card, CardActions, CardContent, Container, GridList, GridListTile, ListSubheader, MenuItem, Select, Typography } from '@material-ui/core';
 
 const UserView = (prop: { id: UserId }) => {
@@ -22,6 +22,127 @@ const UserView = (prop: { id: UserId }) => {
     </Card>
   )
 }
+
+const VoteControl = (prop: { player?: PlayerState, game: Game }) => {
+  const votablePlayer = useSelector(votingTargetPlayersSeledtor)
+  const [voteSelect, setVoteSelect] = React.useState('');
+  const handleChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+    setVoteSelect(event.target.value as string);
+  };
+  return (
+    <div>
+      <Select value={voteSelect}
+        onChange={handleChange}>
+        {votablePlayer.filter(v => v.Id !== prop.player?.Id).map(v => (<MenuItem value={v.Id}>{v.Id}</MenuItem>))}
+      </Select>
+      <Button onClick={() => {
+        const target = prop.game.getPlayerByPlayerId(voteSelect)
+        if (prop.player != null && target != null) {
+          prop.game.getPlayerByUserId(prop.player.User)?.Vote(target)
+        }
+      }}>Vote</Button>
+    </div>
+  )
+}
+
+const ComingOutControl = (prop: { player?: PlayerState, game: Game }) => {
+  const [comingOutSelect, setComingOutSelect] = React.useState<Position | undefined>(undefined);
+  const handleChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+    setComingOutSelect(event.target.value as Position);
+  };
+  return (
+    <div>
+      <Select value={comingOutSelect}
+        onChange={handleChange}>
+        <MenuItem value={"FortuneTeller" as Position}>{"FortuneTeller" as Position}</MenuItem>
+        <MenuItem value={"Psychic" as Position}>{"Psychic" as Position}</MenuItem>
+      </Select>
+      <Button onClick={() => {
+        if (prop.player != null && comingOutSelect !== undefined) {
+          prop.game.getPlayerByUserId(prop.player.User)?.CamingOut(comingOutSelect)
+        }
+      }}>Vote</Button>
+    </div>
+  )
+}
+
+const BiteControl = (prop: { player?: PlayerState, game: Game }) => {
+  const survivalPlayer = useSelector(survivalPlayersSelector)
+  const [biteSelect, setBiteSelect] = React.useState('');
+  const handleChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+    setBiteSelect(event.target.value as string);
+  };
+  return (
+    <div>
+      <Select value={biteSelect}
+        onChange={handleChange}>
+        {survivalPlayer.filter(v => v.Id !== prop.player?.Id && v.Position !== "Werewolf").map(v => (<MenuItem value={v.Id}>{v.Id}</MenuItem>))}
+      </Select>
+      <Button onClick={() => {
+        const target = prop.game.getPlayerByPlayerId(biteSelect)
+        if (prop.player != null && target != null) {
+          prop.game.getPlayerByUserId(prop.player.User)?.Bite(target)
+        }
+      }}>Bite</Button>
+    </div>
+  )
+}
+
+const EscortControl = (prop: { player?: PlayerState, game: Game }) => {
+  const survivalPlayer = useSelector(survivalPlayersSelector)
+  const [escortSelect, setEscortSelect] = React.useState('');
+  const handleChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+    setEscortSelect(event.target.value as string);
+  };
+  return (
+    <div>
+      <Select value={escortSelect}
+        onChange={handleChange}>
+        {survivalPlayer.filter(v => v.Id !== prop.player?.Id).map(v => (<MenuItem value={v.Id}>{v.Id}</MenuItem>))}
+      </Select>
+      <Button onClick={() => {
+        const target = prop.game.getPlayerByPlayerId(escortSelect)
+        if (prop.player != null && target != null) {
+          prop.game.getPlayerByUserId(prop.player.User)?.Escort(target)
+        }
+      }}>Escort</Button>
+    </div>
+  )
+}
+
+const ReportControl = (prop: { player?: PlayerState, game: Game }) => {
+  const players = useSelector(playersSelector)
+  const [reportTargetSelect, setReportTargetSelect] = React.useState<PlayerId | undefined>(undefined);
+  const reportTargetChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+    setReportTargetSelect(event.target.value as PlayerId);
+  };
+  const [reportPositionSelect, setReportPositionSelect] = React.useState<Position | undefined>(undefined);
+  const reportPositionChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+    setReportPositionSelect(event.target.value as Position);
+  };
+  return (
+    <div>
+      <Select value={reportTargetSelect}
+        onChange={reportTargetChange}>
+        {players.filter(v => v.Id !== prop.player?.Id).map(v => (<MenuItem value={v.Id}>{v.Id}</MenuItem>))}
+      </Select>
+      <Select value={reportPositionSelect}
+        onChange={reportPositionChange}>
+        <MenuItem value={"FortuneTeller" as Position}>{"FortuneTeller" as Position}</MenuItem>
+        <MenuItem value={"Psychic" as Position}>{"Psychic" as Position}</MenuItem>
+      </Select>
+      <Button onClick={() => {
+        if (reportPositionSelect && reportTargetSelect) {
+          const target = prop.game.getPlayerByPlayerId(reportTargetSelect)
+          if (prop.player != null && target != null) {
+            prop.game.getPlayerByUserId(prop.player.User)?.Report({ target: target.Id, position: reportPositionSelect })
+          }
+        }
+      }}>Report</Button>
+    </div>
+  )
+}
+
 
 const PlayerView = (prop: { id: PlayerId, game: Game }) => {
   const player = useSelector(playersSelector).find(player => player.Id === prop.id);
@@ -65,20 +186,11 @@ const PlayerView = (prop: { id: PlayerId, game: Game }) => {
           VoteTo: {player?.VoteTo}
         </Typography>
       </CardContent>
-      <div>
-        vote:
-        <Select value={voteSelect}
-          onChange={handleChange}>
-          {votablePlayer.filter(v=>v.Id !== player?.Id).map(v => (<MenuItem value={v.Id}>{v.Id}</MenuItem>))}
-        </Select>
-        <Button onClick={() => {
-          const target = prop.game.getPlayerByPlayerId(voteSelect)
-          if (player != null && target != null) {
-            prop.game.getPlayerByUserId(player.User)?.Vote(target)
-          }
-        }}>Vote</Button>
-
-      </div>
+      <VoteControl player={player} game={prop.game} />
+      <ComingOutControl player={player} game={prop.game} />
+      { player?.Position === "Werewolf" && <BiteControl player={player} game={prop.game} />}
+      { player?.Position === "Knight" && <EscortControl player={player} game={prop.game} />}
+      { player?.CamingOut && <ReportControl player={player} game={prop.game} />}
     </Card>
   )
 }

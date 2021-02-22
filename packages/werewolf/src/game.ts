@@ -1,12 +1,12 @@
 import { createUserSelector, setInitialUserState, User, UserId, userSlice, UserState } from './user'
 import { Config } from './config'
-import { playerSlice, createCitizenStore, createFortuneTellerStore, createKnightStore, createPlayerSelector, createPsychicStore, createPsychoStore, createSharerStore, createSurvivalPlayersSelector, createWerewolfStore, kill, Player, PlayerState, resetNight, setVoteTargets, vote, setInitialPlayerState, createVotingTargetPlayersSelector, PlayerId } from './player'
+import { playerSlice, createCitizenStore, createFortuneTellerStore, createKnightStore, createPlayerSelector, createPsychicStore, createPsychoStore, createSharerStore, createSurvivalPlayersSelector, createWerewolfStore, kill, Player, PlayerState, resetNight, setVoteTargets, vote, setInitialPlayerState, createVotingTargetPlayersSelector, PlayerId, execute, resetVote } from './player'
 import { AnyAction, applyMiddleware, CombinedState, combineReducers, createAction, createSlice, createStore, Store } from '@reduxjs/toolkit'
 import { CannelFactory, Channel } from './channel'
 import createSagaMiddleware from 'redux-saga'
-import { fork, put, select, takeEvery } from 'redux-saga/effects'
+import { call, fork, put, select, takeEvery } from 'redux-saga/effects'
 import groupBy from 'lodash/fp/groupBy'
-import { sortBy, takeWhile } from 'lodash'
+import { max, maxBy, sortBy, takeWhile } from 'lodash'
 import { compose } from 'redux'
 
 export type GameId = string;
@@ -77,13 +77,47 @@ export class Game {
       this.store.getState()
     }
 
+    function * totalVote () {
+      const survivalPlayers: PlayerState[] = yield select(survivalPlayersSelector)
+      const votedGroup = new Map(Object.entries(groupBy<PlayerState>(player => player.VoteTo, survivalPlayers)))
+      console.log(votedGroup)
+      const votedCount = new Map(Array.from(votedGroup.entries()).map(([key, players]) => [key, players.length]))
+      console.log(votedCount)
+      const countGroup = new Map(
+        Object.entries(
+          groupBy(
+            entry => entry.count,
+            Array.from(
+              votedCount.entries())
+              .map(([key, count]) => ({ key, count }))
+          )
+        )
+      )
+      console.log(countGroup)
+      const maxCount = max(Array.from(countGroup.keys()).map(Number.parseInt))
+      if (maxCount === undefined) {
+        return
+      }
+      const targets = countGroup.get(maxCount?.toString())
+      if (targets?.length === 1) {
+        const target = survivalPlayers.find(player => player.Id === targets[0].key)
+        if (target) {
+          yield put(execute({ target: target.Id }))
+          const users:UserState[] = yield select(usersSelector)
+          const name = users.find(user => user.Id === target.User)
+          allChannel.Send(`${name}は処刑されました。`)
+          yield put(toNight())
+        }
+      } else if (targets && targets.length > 1) {
+        yield put(setVoteTargets({ targets: targets?.map(target => target.key) }))
+        yield put(resetVote())
+      }
+    }
+
     function * voteTask () {
       const survivalPlayers: PlayerState[] = yield select(survivalPlayersSelector)
       if (survivalPlayers.every(player => player.VoteTo !== null)) {
-        const votedGroup = groupBy<PlayerState>(player => player.VoteTo, survivalPlayers)
-        console.log(votedGroup)
-        const countGroup = groupBy(v => v.length, votedGroup)
-        console.log(countGroup)
+        yield call(totalVote)
       }
     }
 
@@ -94,7 +128,24 @@ export class Game {
         yield put(setVoteTargets({ targets: targets.map(target => target.Id) }))
         yield put(toVote())
       } else if (phase === 'Vote') {
-
+        yield call(totalVote)
+      } else if (phase === 'Night') {
+        const survivalPlayers: PlayerState[] = yield select(survivalPlayersSelector)
+        const killed = survivalPlayers.find(player => player.IsBited && !player.IsProtected)
+        if (killed !== undefined) {
+          yield put(kill({ target: killed.Id }))
+        }
+        yield put(resetNight())
+        yield put(toDay())
+        const game:GameState = yield select(gameSelector)
+        allChannel.Send(`朝になりました(${game.Days}日目)`)
+        if (killed !== undefined) {
+          const users:UserState[] = yield select(usersSelector)
+          const name = users.find(user => user.Id === killed.User)?.Name
+          allChannel.Send(`${name}は無残な死体となって発見されました。`)
+        } else {
+          allChannel.Send('何事もなく朝を迎えました')
+        }
       }
     }
 
@@ -122,28 +173,6 @@ export class Game {
     }
 
     return new Player(this.store.dispatch, state)
-  }
-
-  ToNight () {
-  }
-
-  ToDay () {
-    const killed = this.store.getState().players.find(player => player.IsBited && !player.IsProtected)
-    if (killed !== undefined) {
-      this.store.dispatch(kill({ target: killed.Id }))
-    }
-    this.store.dispatch(resetNight())
-    this.store.dispatch(toDay())
-    this.AllChannel.Send(`朝になりました(${this.store.getState().game.Days}日目)`)
-    if (killed !== undefined) {
-      this.AllChannel.Send(`${userSelector(this.getState(), killed.User)?.Name}は無残な死体となって発見されました。`)
-    }
-  }
-
-  ToVote () {
-    const targets = survivalPlayersSelector(this.getState())
-    this.store.dispatch(setVoteTargets({ targets: targets.map(target => target.Id) }))
-    this.store.dispatch(toVote())
   }
 
   TimeOut (): void {
