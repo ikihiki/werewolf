@@ -1,4 +1,4 @@
-import { AnyAction, createAction, createSlice, Dispatch, PayloadAction } from '@reduxjs/toolkit'
+import { AnyAction, createAction, createSelector, createSlice, Dispatch, PayloadAction } from '@reduxjs/toolkit'
 import { User, UserId } from './user'
 
 export type Camp = 'Werewolf Side' | 'Citizen Side';
@@ -10,26 +10,26 @@ interface BitePayload {
 }
 const bite = createAction<BitePayload>('bite')
 
-interface EscortPayload{
+interface EscortPayload {
   target: PlayerId
 }
 const escort = createAction<EscortPayload>('escort')
-interface VotePayload{
+interface VotePayload {
   player: PlayerId
   target: PlayerId
 }
-const vote = createAction<VotePayload>('vote')
-interface CamingOutPayload{
+export const vote = createAction<VotePayload>('vote')
+interface CamingOutPayload {
   player: PlayerId
   position: Position
 }
 const camingOut = createAction<CamingOutPayload>('camingOut')
 
-export interface Report{
+export interface Report {
   target: PlayerId
   position: Position
 }
-interface ReportPayload{
+interface ReportPayload {
   player: PlayerId
   report: Report
 }
@@ -44,6 +44,10 @@ interface ExecutePayload {
 export const execute = createAction<ExecutePayload>('execute')
 export const resetNight = createAction('resetNight')
 export const resetVote = createAction('resetVote')
+interface SetVoteTargetsPayload {
+  targets: PlayerId[]
+}
+export const setVoteTargets = createAction<SetVoteTargetsPayload>('setVoteTargets')
 
 export interface PlayerState {
   Id: PlayerId;
@@ -54,8 +58,22 @@ export interface PlayerState {
   IsBited: boolean;
   IsProtected: boolean;
   VoteTo: PlayerId | null;
+  IsVotingTarget: boolean;
   CamingOut: Position | null;
   Reports: Report[]
+}
+
+export function createPlayerSelector<RootState> (playersSelector: (state: RootState) => PlayerState[]) {
+  return createSelector(
+    (state: RootState) => playersSelector(state),
+    (_: RootState, id: PlayerId) => id,
+    (state, id) => state.find(player => player.Id === id))
+}
+
+export function createSurvivalPlayersSelector<RootState> (playersSelector: (state: RootState) => PlayerState[]) {
+  return createSelector(
+    (state: RootState) => playersSelector(state),
+    (state) => state.filter(player => player.IsSurvival))
 }
 
 export function createPlayersSlice (initialState: PlayerState[]) {
@@ -78,85 +96,91 @@ export function createPlayersSlice (initialState: PlayerState[]) {
       execute: (state, action: PayloadAction<ExecutePayload>) =>
         state.map(item => item.User === action.payload.target ? { ...item, IsSurvival: false } : item),
       resetNight: (state) =>
-        state.map(item => ({ ...item, IsBited: false, IsProtected: false })),
+        state.map(item => ({ ...item, IsBited: false, IsProtected: false, IsVotingTarget: false })),
       resetVote: (state) =>
-        state.map(item => ({ ...item, VoteTo: null }))
-
+        state.map(item => ({ ...item, VoteTo: null })),
+      setVoteTargets: (state, action: PayloadAction<SetVoteTargetsPayload>) =>
+        state.map(item => ({ ...item, IsVotingTarget: action.payload.targets.find(id => item.Id === id) !== undefined }))
     }
   })
 }
 
 export class Player {
-    Id: PlayerId;
-    User: UserId;
-    IsSurvival: boolean;
-    Camp: Camp;
-    Position: Position;
-    CamingOutPosition: Position | null;
-    #dispach: Dispatch<AnyAction>
-    constructor (dispach: Dispatch<AnyAction>, state: PlayerState) {
-      this.Id = state.Id
-      this.User = state.User
-      this.IsSurvival = state.IsSurvival
-      this.Camp = state.Camp
-      this.Position = state.Position
-      this.CamingOutPosition = state.CamingOut
-      this.#dispach = dispach
-    }
+  Id: PlayerId;
+  User: UserId;
+  IsSurvival: boolean;
+  Camp: Camp;
+  Position: Position;
+  CamingOutPosition: Position | null;
+  IsVotingTarget: boolean;
+  #dispach: Dispatch<AnyAction>
+  constructor (dispach: Dispatch<AnyAction>, state: PlayerState) {
+    this.Id = state.Id
+    this.User = state.User
+    this.IsSurvival = state.IsSurvival
+    this.Camp = state.Camp
+    this.Position = state.Position
+    this.CamingOutPosition = state.CamingOut
+    this.IsVotingTarget = state.IsVotingTarget
+    this.#dispach = dispach
+  }
 
-    Bite (target: Player):void {
-      if (!this.IsSurvival) {
-        throw new Error('You are already dead')
-      }
-      if (this.Position !== 'Werewolf') {
-        throw new Error('You are not werewolf')
-      }
-      this.#dispach(bite({ target: target.Id }))
+  Bite (target: Player): void {
+    if (!this.IsSurvival) {
+      throw new Error('You are already dead')
     }
+    if (this.Position !== 'Werewolf') {
+      throw new Error('You are not werewolf')
+    }
+    this.#dispach(bite({ target: target.Id }))
+  }
 
-    Escort (target: Player):void {
-      if (!this.IsSurvival) {
-        throw new Error('You are already dead')
-      }
-      if (this.Position !== 'Knight') {
-        throw new Error('You are not Knight')
-      }
-      this.#dispach(escort({ target: target.Id }))
+  Escort (target: Player): void {
+    if (!this.IsSurvival) {
+      throw new Error('You are already dead')
     }
+    if (this.Position !== 'Knight') {
+      throw new Error('You are not Knight')
+    }
+    this.#dispach(escort({ target: target.Id }))
+  }
 
-    Fortune (target: Player):Camp {
-      if (!this.IsSurvival) {
-        throw new Error('You are already dead')
-      }
-      if (this.Position !== 'FortuneTeller') {
-        throw new Error('You are not Knight')
-      }
-      return target.Camp
+  Fortune (target: Player): Camp {
+    if (!this.IsSurvival) {
+      throw new Error('You are already dead')
     }
+    if (this.Position !== 'FortuneTeller') {
+      throw new Error('You are not Knight')
+    }
+    return target.Camp
+  }
 
-    Vote (target: Player):void {
-      if (!this.IsSurvival) {
-        throw new Error('You are already dead')
-      }
-      this.#dispach(vote({ player: this.Id, target: target.Id }))
+  Vote (target: Player): void {
+    if (!this.IsSurvival) {
+      throw new Error('You are already dead')
     }
+    if (!target.IsVotingTarget) {
+      throw new Error('Target is not voting target')
+    }
+    this.#dispach(vote({ player: this.Id, target: target.Id }))
+  }
 
-    CamingOut (position: Position):void {
-      if (!this.IsSurvival) {
-        throw new Error('You are already dead')
-      }
-      this.#dispach(camingOut({ player: this.Id, position: position }))
+  CamingOut (position: Position): void {
+    if (!this.IsSurvival) {
+      throw new Error('You are already dead')
     }
+    this.#dispach(camingOut({ player: this.Id, position: position }))
+  }
 
-    Report (reportData: Report):void {
-      if (!this.IsSurvival) {
-        throw new Error('You are already dead')
-      }
-      this.#dispach(report({ player: this.Id, report: reportData }))
+  Report (reportData: Report): void {
+    if (!this.IsSurvival) {
+      throw new Error('You are already dead')
     }
+    this.#dispach(report({ player: this.Id, report: reportData }))
+  }
 }
 
-function createPlayerStore (playerId:PlayerId, user: User):PlayerState {
+function createPlayerStore (playerId: PlayerId, user: User): PlayerState {
   return {
     Id: playerId,
     User: user.Id,
@@ -169,7 +193,7 @@ function createPlayerStore (playerId:PlayerId, user: User):PlayerState {
   } as PlayerState
 }
 
-export function createWerewolfStore (playerId:PlayerId, user: User):PlayerState {
+export function createWerewolfStore (playerId: PlayerId, user: User): PlayerState {
   return {
     ...createPlayerStore(playerId, user),
     Camp: 'Werewolf Side',
@@ -177,7 +201,7 @@ export function createWerewolfStore (playerId:PlayerId, user: User):PlayerState 
   }
 }
 
-export function createPsychoStore (playerId:PlayerId, user: User):PlayerState {
+export function createPsychoStore (playerId: PlayerId, user: User): PlayerState {
   return {
     ...createPlayerStore(playerId, user),
     Camp: 'Werewolf Side',
@@ -185,7 +209,7 @@ export function createPsychoStore (playerId:PlayerId, user: User):PlayerState {
   }
 }
 
-export function createCitizenStore (playerId:PlayerId, user: User):PlayerState {
+export function createCitizenStore (playerId: PlayerId, user: User): PlayerState {
   return {
     ...createPlayerStore(playerId, user),
     Camp: 'Citizen Side',
@@ -193,7 +217,7 @@ export function createCitizenStore (playerId:PlayerId, user: User):PlayerState {
   }
 }
 
-export function createFortuneTellerStore (playerId:PlayerId, user: User):PlayerState {
+export function createFortuneTellerStore (playerId: PlayerId, user: User): PlayerState {
   return {
     ...createPlayerStore(playerId, user),
     Camp: 'Citizen Side',
@@ -201,7 +225,7 @@ export function createFortuneTellerStore (playerId:PlayerId, user: User):PlayerS
   }
 }
 
-export function createKnightStore (playerId:PlayerId, user: User):PlayerState {
+export function createKnightStore (playerId: PlayerId, user: User): PlayerState {
   return {
     ...createPlayerStore(playerId, user),
     Camp: 'Citizen Side',
@@ -209,7 +233,7 @@ export function createKnightStore (playerId:PlayerId, user: User):PlayerState {
   }
 }
 
-export function createPsychicStore (playerId:PlayerId, user: User):PlayerState {
+export function createPsychicStore (playerId: PlayerId, user: User): PlayerState {
   return {
     ...createPlayerStore(playerId, user),
     Camp: 'Citizen Side',
@@ -217,7 +241,7 @@ export function createPsychicStore (playerId:PlayerId, user: User):PlayerState {
   }
 }
 
-export function createSharerStore (playerId:PlayerId, user: User):PlayerState {
+export function createSharerStore (playerId: PlayerId, user: User): PlayerState {
   return {
     ...createPlayerStore(playerId, user),
     Camp: 'Citizen Side',

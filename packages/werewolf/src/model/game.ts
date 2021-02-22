@@ -1,9 +1,13 @@
-import { User } from './user'
+import { createUserSelector, createUserSlice, User, UserState } from './user'
 import { Config } from './config'
-import { createCitizenStore, createFortuneTellerStore, createKnightStore, createPlayersSlice, createPsychicStore, createPsychoStore, createSharerStore, createWerewolfStore, kill, Player, PlayerState, resetNight } from './player'
-import { AnyAction, CombinedState, combineReducers, createAction, createSlice, createStore, Store } from '@reduxjs/toolkit'
+import { createCitizenStore, createFortuneTellerStore, createKnightStore, createPlayerSelector, createPlayersSlice, createPsychicStore, createPsychoStore, createSharerStore, createSurvivalPlayersSelector, createWerewolfStore, kill, Player, PlayerState, resetNight, setVoteTargets, vote } from './player'
+import { AnyAction, applyMiddleware, CombinedState, combineReducers, createAction, createSlice, createStore, Store } from '@reduxjs/toolkit'
 import { store } from '../store'
 import { CannelFactory, Channel } from './channel'
+import createSagaMiddleware from 'redux-saga'
+import { fork, put, select, takeEvery } from 'redux-saga/effects'
+import groupBy from 'lodash/fp/groupBy'
+import { sortBy } from 'lodash'
 
 export type GameId = string;
 export type Phase = 'Daytime' | 'Vote' | 'Night';
@@ -15,6 +19,7 @@ interface GameState {
 const toDay = createAction('toDay')
 const toNight = createAction('toNight')
 const toVote = createAction('toVote')
+const timeOut = createAction('timeOut')
 const gameSline = createSlice({
   name: 'game',
   initialState: { Phase: 'Daytime', Days: 1 } as GameState,
@@ -25,19 +30,26 @@ const gameSline = createSlice({
   }
 })
 
+interface RootState {
+  game: GameState,
+  users: UserState[],
+  players: PlayerState[]
+}
+
+const usersSelector = (state: RootState) => state.users
+const userSelector = createUserSelector(usersSelector)
+const playersSelector = (state: RootState) => state.players
+const playerSelector = createPlayerSelector(playersSelector)
+const survivalPlayersSelector = createSurvivalPlayersSelector(playersSelector)
+const gameSelector = (state: RootState) => state.game
 export class Game {
   Config: Config;
   WerewolfChannel: Channel
   ShererChannel: Channel | null
   AllChannel: Channel
-  #store: Store<CombinedState<{
-    players: PlayerState[];
-    game: GameState
-  }>, AnyAction>;
+  #store: Store<RootState, AnyAction>;
 
-  constructor(store: Store<CombinedState<{
-    players: PlayerState[]; game: GameState
-  }>, AnyAction>, config: Config, allChannel: Channel, werewolfChannel: Channel, shererChannel: Channel | null) {
+  constructor (store: Store<RootState, AnyAction>, config: Config, allChannel: Channel, werewolfChannel: Channel, shererChannel: Channel | null) {
     this.#store = store
     this.Config = config
     this.AllChannel = allChannel
@@ -45,7 +57,7 @@ export class Game {
     this.ShererChannel = shererChannel
   }
 
-  getPlayerByUser(user: User) {
+  getPlayerByUser (user: User) {
     const state = this.#store.getState().players.find(player => player.User === user.Id)
     if (state === undefined) {
       return undefined
@@ -54,27 +66,51 @@ export class Game {
     return new Player(this.#store.dispatch, state)
   }
 
-  ToNight() {
-
+  ToNight () {
   }
 
-  ToDay() {
+  ToDay () {
     const killed = this.#store.getState().players.find(player => player.IsBited && !player.IsProtected)
     if (killed !== undefined) {
       this.#store.dispatch(kill({ target: killed.Id }))
     }
     this.#store.dispatch(resetNight())
-    this.#store.dispatch(toDay)
+    this.#store.dispatch(toDay())
     this.AllChannel.Send(`朝になりました(${this.#store.getState().game.Days}日目)`)
     if (killed !== undefined) {
-      this.AllChannel.Send(`${}`)
+      this.AllChannel.Send(`${userSelector(this.getState(), killed.User)?.Name}は無残な死体となって発見されました。`)
     }
+  }
 
+  ToVote () {
+    const targets = survivalPlayersSelector(this.getState())
+    this.#store.dispatch(setVoteTargets({ targets: targets.map(target => target.Id) }))
+    this.#store.dispatch(toVote())
+  }
+
+  TimeOut (): void {
+    this.#store.dispatch(timeOut())
+  }
+
+  getState () {
+    return this.#store.getState()
   }
 }
 
-function getRandomInt(max: number) {
+function getRandomInt (max: number) {
   return Math.floor(Math.random() * Math.floor(max))
+}
+
+function * voteTask () {
+  const survivalPlayers: PlayerState[] = yield select(survivalPlayersSelector)
+  if (survivalPlayers.every(player => player.VoteTo !== null)) {
+    const votedGroup = groupBy<PlayerState>(player => player.VoteTo, survivalPlayers)
+    const countGroup = groupBy(v => v.length, votedGroup)
+  }
+}
+
+function * rootTask () {
+  yield takeEvery(vote.type, voteTask)
 }
 
 export const createGame = (users: User[], config: Config, allChannel: Channel, channelFactory: CannelFactory): Game => {
@@ -121,11 +157,14 @@ export const createGame = (users: User[], config: Config, allChannel: Channel, c
   }
 
   const palayerSlice = createPlayersSlice(players)
-  const reducer = combineReducers({
+  const userSlice = createUserSlice(users.map(user => ({ Id: user.Id, Name: user.Name } as UserState)))
+  const reducer = combineReducers<RootState>({
     players: palayerSlice.reducer,
-    game: gameSline.reducer
+    game: gameSline.reducer,
+    users: userSlice.reducer
   })
+  const sagaMiddleware = createSagaMiddleware()
+  const store = createStore(reducer, applyMiddleware(sagaMiddleware))
 
-  const store = createStore(reducer)
-  return new Game(store, config, allChannel, werewolfChannel, sharerfChannel);
+  return new Game(store, config, allChannel, werewolfChannel, sharerfChannel)
 }
