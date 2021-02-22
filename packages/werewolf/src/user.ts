@@ -1,4 +1,4 @@
-import { createSelector, createSlice } from '@reduxjs/toolkit'
+import { createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit'
 
 export type UserId = string;
 
@@ -6,15 +6,17 @@ export interface UserState {
   Id: UserId;
   Name: string
 }
-
-export function createUserSlice (users: UserState[]) {
-  return createSlice({
-    name: 'users',
-    initialState: users,
-    reducers: {
-    }
-  })
+interface SetInitialUserStatePayload{
+  state: UserState[]
 }
+export const userSlice = createSlice({
+  name: 'users',
+  initialState: [] as UserState[],
+  reducers: {
+    setInitialUserState: (state, action: PayloadAction<SetInitialUserStatePayload>) => action.payload.state
+  }
+})
+export const { setInitialUserState } = userSlice.actions
 export function createUserSelector<RootState> (usersSelector: (state: RootState) => UserState[]) {
   return createSelector(
     (state: RootState) => usersSelector(state),

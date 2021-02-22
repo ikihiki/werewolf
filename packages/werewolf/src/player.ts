@@ -4,51 +4,10 @@ import { User, UserId } from './user'
 export type Camp = 'Werewolf Side' | 'Citizen Side';
 export type Position = 'Werewolf' | 'Psycho' | 'Citizen' | 'FortuneTeller' | 'Knight' | 'Psychic' | 'Sharer';
 export type PlayerId = string;
-
-interface BitePayload {
-  target: PlayerId
-}
-const bite = createAction<BitePayload>('bite')
-
-interface EscortPayload {
-  target: PlayerId
-}
-const escort = createAction<EscortPayload>('escort')
-interface VotePayload {
-  player: PlayerId
-  target: PlayerId
-}
-export const vote = createAction<VotePayload>('vote')
-interface CamingOutPayload {
-  player: PlayerId
-  position: Position
-}
-const camingOut = createAction<CamingOutPayload>('camingOut')
-
 export interface Report {
   target: PlayerId
   position: Position
 }
-interface ReportPayload {
-  player: PlayerId
-  report: Report
-}
-const report = createAction<ReportPayload>('report')
-interface KillPayload {
-  target: PlayerId
-}
-export const kill = createAction<KillPayload>('kill')
-interface ExecutePayload {
-  target: PlayerId
-}
-export const execute = createAction<ExecutePayload>('execute')
-export const resetNight = createAction('resetNight')
-export const resetVote = createAction('resetVote')
-interface SetVoteTargetsPayload {
-  targets: PlayerId[]
-}
-export const setVoteTargets = createAction<SetVoteTargetsPayload>('setVoteTargets')
-
 export interface PlayerState {
   Id: PlayerId;
   User: UserId;
@@ -61,6 +20,37 @@ export interface PlayerState {
   IsVotingTarget: boolean;
   CamingOut: Position | null;
   Reports: Report[]
+}
+interface SetInitialPlayerStatePayload{
+  state: PlayerState[]
+}
+interface BitePayload {
+  target: PlayerId
+}
+interface EscortPayload {
+  target: PlayerId
+}
+interface VotePayload {
+  player: PlayerId
+  target: PlayerId
+}
+interface CamingOutPayload {
+  player: PlayerId
+  position: Position
+}
+
+interface ReportPayload {
+  player: PlayerId
+  report: Report
+}
+interface KillPayload {
+  target: PlayerId
+}
+interface ExecutePayload {
+  target: PlayerId
+}
+interface SetVoteTargetsPayload {
+  targets: PlayerId[]
 }
 
 export function createPlayerSelector<RootState> (playersSelector: (state: RootState) => PlayerState[]) {
@@ -76,34 +66,41 @@ export function createSurvivalPlayersSelector<RootState> (playersSelector: (stat
     (state) => state.filter(player => player.IsSurvival))
 }
 
-export function createPlayersSlice (initialState: PlayerState[]) {
-  return createSlice({
-    name: 'players',
-    initialState: initialState,
-    reducers: {
-      bite: (state, action: PayloadAction<BitePayload>) =>
-        state.map(item => ({ ...item, IsBited: item.Id === action.payload.target })),
-      escort: (state, action: PayloadAction<EscortPayload>) =>
-        state.map(item => ({ ...item, IsProtected: item.Id === action.payload.target })),
-      vote: (state, action: PayloadAction<VotePayload>) =>
-        state.map(item => item.User === action.payload.player ? { ...item, VoteTo: action.payload.target } : item),
-      camingOut: (state, action: PayloadAction<CamingOutPayload>) =>
-        state.map(item => item.User === action.payload.player ? { ...item, CamingOut: action.payload.position } : item),
-      report: (state, action: PayloadAction<ReportPayload>) =>
-        state.map(item => item.User === action.payload.player ? { ...item, Reports: [...item.Reports, action.payload.report] } : item),
-      kill: (state, action: PayloadAction<KillPayload>) =>
-        state.map(item => item.User === action.payload.target ? { ...item, IsSurvival: false } : item),
-      execute: (state, action: PayloadAction<ExecutePayload>) =>
-        state.map(item => item.User === action.payload.target ? { ...item, IsSurvival: false } : item),
-      resetNight: (state) =>
-        state.map(item => ({ ...item, IsBited: false, IsProtected: false, IsVotingTarget: false })),
-      resetVote: (state) =>
-        state.map(item => ({ ...item, VoteTo: null })),
-      setVoteTargets: (state, action: PayloadAction<SetVoteTargetsPayload>) =>
-        state.map(item => ({ ...item, IsVotingTarget: action.payload.targets.find(id => item.Id === id) !== undefined }))
-    }
-  })
+export function createVotingTargetPlayersSelector<RootState> (playersSelector: (state: RootState) => PlayerState[]) {
+  return createSelector(
+    (state: RootState) => playersSelector(state),
+    (state) => state.filter(player => player.IsVotingTarget))
 }
+
+export const playerSlice = createSlice({
+  name: 'players',
+  initialState: [] as PlayerState[],
+  reducers: {
+    setInitialPlayerState: (state, action: PayloadAction<SetInitialPlayerStatePayload>) => action.payload.state,
+    bite: (state, action: PayloadAction<BitePayload>) =>
+      state.map(item => ({ ...item, IsBited: item.Id === action.payload.target })),
+    escort: (state, action: PayloadAction<EscortPayload>) =>
+      state.map(item => ({ ...item, IsProtected: item.Id === action.payload.target })),
+    vote: (state, action: PayloadAction<VotePayload>) =>
+      state.map(item => item.Id === action.payload.player ? { ...item, VoteTo: action.payload.target } : item),
+    camingOut: (state, action: PayloadAction<CamingOutPayload>) =>
+      state.map(item => item.Id === action.payload.player ? { ...item, CamingOut: action.payload.position } : item),
+    report: (state, action: PayloadAction<ReportPayload>) =>
+      state.map(item => item.Id === action.payload.player ? { ...item, Reports: [...item.Reports, action.payload.report] } : item),
+    kill: (state, action: PayloadAction<KillPayload>) =>
+      state.map(item => item.Id === action.payload.target ? { ...item, IsSurvival: false } : item),
+    execute: (state, action: PayloadAction<ExecutePayload>) =>
+      state.map(item => item.Id === action.payload.target ? { ...item, IsSurvival: false } : item),
+    resetNight: (state) =>
+      state.map(item => ({ ...item, IsBited: false, IsProtected: false, IsVotingTarget: false })),
+    resetVote: (state) =>
+      state.map(item => ({ ...item, VoteTo: null })),
+    setVoteTargets: (state, action: PayloadAction<SetVoteTargetsPayload>) =>
+      state.map(item => ({ ...item, IsVotingTarget: action.payload.targets.find(id => item.Id === id) !== undefined }))
+  }
+})
+
+export const { setInitialPlayerState, bite, escort, vote, camingOut, report, kill, execute, resetNight, resetVote, setVoteTargets } = playerSlice.actions
 
 export class Player {
   Id: PlayerId;
@@ -185,9 +182,10 @@ function createPlayerStore (playerId: PlayerId, user: User): PlayerState {
     Id: playerId,
     User: user.Id,
     IsBited: false,
-    IsSurvival: false,
+    IsSurvival: true,
     CamingOut: null,
     IsProtected: false,
+    IsVotingTarget: false,
     VoteTo: null,
     Reports: [] as Report[]
   } as PlayerState

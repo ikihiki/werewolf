@@ -1,15 +1,48 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
+import { createGame, Scheduler } from 'werewolf/dest/game'
 import App from './App';
-import { store } from './app/store';
 import { Provider } from 'react-redux';
 import * as serviceWorker from './serviceWorker';
+import { User } from 'werewolf/dest/user';
+import { Config } from 'werewolf/dest/config';
+import { CannelFactory, Channel } from 'werewolf/dest/channel';
+
+const users = []
+for (let i = 1; i < 9; i++) {
+  users.push(new User(`user-${i}`, `User${i}`))
+}
+const config: Config = {
+  numberOfWerewolf: 2,
+  numberOfPsycho: 1,
+  numberOfFortuneTeller: 1,
+  numberOfKnight: 1,
+  numberOfPsychic: 1,
+  numberOfSharer: 0
+}
+
+const allChannel = {
+  Id: 'all',
+  Type: "All",
+  Send: (txt) => console.log(txt)
+} as Channel;
+
+const channelFactory: CannelFactory = (participants, type) => ({
+  Id: type,
+  Type: type,
+  Participants: participants,
+  Send: (txt) => console.log(txt)
+})
+
+
+
+const game = createGame(users, config, allChannel, channelFactory, { SetSchedule: date => console.log(date) })
 
 ReactDOM.render(
   <React.StrictMode>
-    <Provider store={store}>
-      <App />
+    <Provider store={game.store}>
+      <App game={game} />
     </Provider>
   </React.StrictMode>,
   document.getElementById('root')
