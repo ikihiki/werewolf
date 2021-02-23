@@ -18,16 +18,17 @@ export interface Scheduler {
 interface GameState {
   Phase: Phase
   Days: number
+  Config: Config
 }
 const timeOut = createAction('timeOut')
 const gameSline = createSlice({
   name: 'game',
   initialState: { Phase: 'Daytime', Days: 1 } as GameState,
   reducers: {
-    toDay: (state) => ({ Phase: 'Daytime', Days: state.Days + 1 }),
-    toNight: (state) => ({ Phase: 'Night', Days: state.Days }),
-    toVote: (state) => ({ Phase: 'Vote', Days: state.Days }),
-    toGameOver: (state, action: PayloadAction<Camp>) => ({ Phase: 'GameOver', Days: state.Days})
+    toDay: (state) => ({ ...state, Phase: 'Daytime', Days: state.Days + 1 }),
+    toNight: (state) => ({ ...state, Phase: 'Night' }),
+    toVote: (state) => ({ ...state, Phase: 'Vote' }),
+    toGameOver: (state, action: PayloadAction<Camp>) => ({ ...state, Phase: 'GameOver'})
   }
 })
 export const { toDay, toNight, toVote, toGameOver } = gameSline.actions
@@ -75,7 +76,9 @@ export class Game {
       this.store.dispatch(setInitialPlayerState({ state: players }))
       this.store.dispatch(setInitialUserState({ state: users }))
     } else {
-      this.store.getState()
+        for (const key in stateOrPlayer) {
+            this.store.getState()[key] = stateOrPlayer[key]
+        }
     }
     const judgeWin = function * () {
         const survivalPlayers: PlayerState[] = yield select(survivalPlayersSelector)
@@ -84,11 +87,13 @@ export class Game {
         const citizenSideCount = survivalPlayers.filter(player => player.Camp === 'Citizen Side').length
         if(werewolfCount === 0){
             yield put(toGameOver('Citizen Side'))
+            allChannel.Send('市民が勝利しました')
             return true
-        } else if (werewolfSideCount >= citizenSideCount){
+        } else if (werewolfSideCount >= citizenSideCount) {
             yield put(toGameOver('Werewolf Side'))
+            allChannel.Send('人狼が勝利しました')
             return true
-        }else {
+        } else {
             return false
         }
     }
@@ -254,3 +259,5 @@ export const createGame = (users: User[], config: Config, allChannel: Channel, c
 
   return new Game(players, users, config, allChannel, werewolfChannel, sharerfChannel, scheduler)
 }
+
+export const storeGame =(state: RootState, )
