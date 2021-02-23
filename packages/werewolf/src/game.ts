@@ -1,7 +1,7 @@
 import { createUserSelector, setInitialUserState, User, UserId, userSlice, UserState } from './user'
 import { Config } from './config'
-import { playerSlice, createCitizenStore, createFortuneTellerStore, createKnightStore, createPlayerSelector, createPsychicStore, createPsychoStore, createSharerStore, createSurvivalPlayersSelector, createWerewolfStore, kill, Player, PlayerState, resetNight, setVoteTargets, vote, setInitialPlayerState, createVotingTargetPlayersSelector, PlayerId, execute, resetVote } from './player'
-import { AnyAction, applyMiddleware, CombinedState, combineReducers, createAction, createSlice, createStore, Store } from '@reduxjs/toolkit'
+import { playerSlice, createCitizenStore, createFortuneTellerStore, createKnightStore, createPlayerSelector, createPsychicStore, createPsychoStore, createSharerStore, createSurvivalPlayersSelector, createWerewolfStore, kill, Player, PlayerState, resetNight, setVoteTargets, vote, setInitialPlayerState, createVotingTargetPlayersSelector, PlayerId, execute, resetVote, Camp } from './player'
+import { AnyAction, applyMiddleware, CombinedState, combineReducers, createAction, createSlice, createStore, Store, PayloadAction } from '@reduxjs/toolkit'
 import { CannelFactory, Channel } from './channel'
 import createSagaMiddleware from 'redux-saga'
 import { call, fork, put, select, takeEvery } from 'redux-saga/effects'
@@ -10,7 +10,7 @@ import { max, maxBy, sortBy, takeWhile } from 'lodash'
 import { compose } from 'redux'
 
 export type GameId = string;
-export type Phase = 'Daytime' | 'Vote' | 'Night';
+export type Phase = 'Daytime' | 'Vote' | 'Night' | 'GameOver';
 export interface Scheduler {
   SetSchedule:(date: Date)=>void;
 }
@@ -26,10 +26,11 @@ const gameSline = createSlice({
   reducers: {
     toDay: (state) => ({ Phase: 'Daytime', Days: state.Days + 1 }),
     toNight: (state) => ({ Phase: 'Night', Days: state.Days }),
-    toVote: (state) => ({ Phase: 'Vote', Days: state.Days })
+    toVote: (state) => ({ Phase: 'Vote', Days: state.Days }),
+    toGameOver: (state, action: PayloadAction<Camp>) => ({ Phase: 'GameOver', Days: state.Days})
   }
 })
-export const { toDay, toNight, toVote } = gameSline.actions
+export const { toDay, toNight, toVote, toGameOver } = gameSline.actions
 interface RootState {
   game: GameState,
   users: UserState[],
@@ -76,7 +77,21 @@ export class Game {
     } else {
       this.store.getState()
     }
-
+    const judgeWin = function * () {
+        const survivalPlayers: PlayerState[] = yield select(survivalPlayersSelector)
+        const werewolfCount = survivalPlayers.filter(player => player.Position === 'Werewolf').length
+        const werewolfSideCount = survivalPlayers.filter(player => player.Camp === 'Werewolf Side').length
+        const citizenSideCount = survivalPlayers.filter(player => player.Camp === 'Citizen Side').length
+        if(werewolfCount === 0){
+            yield put(toGameOver('Citizen Side'))
+            return true
+        } else if (werewolfSideCount >= citizenSideCount){
+            yield put(toGameOver('Werewolf Side'))
+            return true
+        }else {
+            return false
+        }
+    }
     function * totalVote () {
       const survivalPlayers: PlayerState[] = yield select(survivalPlayersSelector)
       const votedGroup = new Map(Object.entries(groupBy<PlayerState>(player => player.VoteTo, survivalPlayers)))
@@ -106,6 +121,9 @@ export class Game {
           const users:UserState[] = yield select(usersSelector)
           const name = users.find(user => user.Id === target.User)
           allChannel.Send(`${name}は処刑されました。`)
+          if(yield call(judgeWin)){
+              return
+          }
           yield put(toNight())
         }
       } else if (targets && targets.length > 1) {
@@ -136,6 +154,9 @@ export class Game {
           yield put(kill({ target: killed.Id }))
         }
         yield put(resetNight())
+        if(yield call(judgeWin)){
+            return
+        }
         yield put(toDay())
         const game:GameState = yield select(gameSelector)
         allChannel.Send(`朝になりました(${game.Days}日目)`)
