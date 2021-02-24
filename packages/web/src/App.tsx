@@ -61,7 +61,7 @@ const ComingOutControl = (prop: { player?: PlayerState, game: Game }) => {
         if (prop.player != null && comingOutSelect !== undefined) {
           prop.game.getPlayerByUserId(prop.player.User)?.CamingOut(comingOutSelect)
         }
-      }}>Vote</Button>
+      }}>ComingOut</Button>
     </div>
   )
 }
