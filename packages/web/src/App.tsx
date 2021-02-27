@@ -3,7 +3,7 @@ import logo from './logo.svg';
 import './App.css';
 import { useSelector } from 'react-redux';
 import { Game, gameSelector, playersSelector, survivalPlayersSelector, usersSelector, votingTargetPlayersSeledtor } from 'werewolf/dest/game';
-import { UserId } from 'werewolf/dest/user';
+import { UserId } from 'werewolf';
 import { Camp, PlayerId, PlayerState, Position } from 'werewolf/dest/player';
 import { Button, Card, CardActions, CardContent, Container, GridList, GridListTile, ListSubheader, MenuItem, Select, Typography } from '@material-ui/core';
 

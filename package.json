@@ -8,13 +8,15 @@
   },
   "scripts": {
     "bootstrap": "lerna bootstrap",
-    "start": "node ./dest/app.js",
+    "link": "lerna link",
+    "lint:fix": "lerna run lint:fix",
+    "core:build": "lerna run build --scope werewolf",
     "test": "jest",
     "test:watch": "jest --watch",
     "watch": "tsc -w",
-    "web": "react-scripts build",
+    "web:build": "react-scripts build",
     "web:start": "lerna run start --scope web",
-    "lint:fix": "lerna run lint:fix"
+    "hubot:build": "lerna run build --scope werewolf-hubot"
   },
   "repository": {
     "type": "git",

@@ -1,15 +1,14 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
-import { createGame, Scheduler } from 'werewolf/dest/game'
+import { ChannelManager, createGame, Scheduler } from 'werewolf'
 import App from './App';
 import { Provider } from 'react-redux';
 import * as serviceWorker from './serviceWorker';
 import { User } from 'werewolf/dest/user';
 import { Config } from 'werewolf/dest/config';
 import dayjs from 'dayjs';
-import duration  from 'dayjs/plugin/duration';
-import { ChannelManager } from 'werewolf/dest/channel';
+import duration from 'dayjs/plugin/duration';
 import iziToast from 'izitoast';
 
 dayjs.extend(duration)
@@ -25,30 +24,38 @@ const config: Config = {
   numberOfKnight: 1,
   numberOfPsychic: 1,
   numberOfSharer: 0,
-  dayLength: dayjs.duration({hours:6}).toISOString(),
-  nightLength:dayjs.duration({hours:6}).toISOString(),
-  finalVoteLength: dayjs.duration({minutes:10}).toISOString(),
-  voteLength: dayjs.duration({minutes:20}).toISOString(),
+  dayLength: dayjs.duration({ hours: 6 }).toISOString(),
+  nightLength: dayjs.duration({ hours: 6 }).toISOString(),
+  finalVoteLength: dayjs.duration({ minutes: 10 }).toISOString(),
+  voteLength: dayjs.duration({ minutes: 20 }).toISOString(),
 }
 
 const channelManager = {
-  Send: (target,message) => iziToast.info({
+  Send: (target, message) => iziToast.info({
     title: message.message,
-    message: `target: ${target}\nparam:${ JSON.stringify(message.param)}`,
-    timeout:50000
-  })
+    message: `target: ${JSON.stringify(target)}\nparam:${JSON.stringify(message.param)}`,
+    timeout: 50000
+  }),
+  Join: (userIds) => {
+    iziToast.success({
+      title: 'Create channel',
+      message: `users are ${JSON.stringify(userIds)}`,
+      timeout: 50000
+    })
+    return JSON.stringify(userIds)
+  }
 } as ChannelManager;
 
 const scheduler: Scheduler = {
-  SetSchedule: date=>iziToast.success({
+  SetSchedule: date => iziToast.success({
     title: 'Schedule set',
     message: `date is ${date.format()}`,
-    timeout:50000
+    timeout: 50000
   })
 }
 
 
-const game = createGame(users, config, channelManager,scheduler)
+const game = createGame(users, config, channelManager, scheduler, 'All')
 
 ReactDOM.render(
   <React.StrictMode>

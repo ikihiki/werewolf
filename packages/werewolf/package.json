@@ -2,7 +2,7 @@
   "name": "werewolf",
   "version": "1.0.0",
   "description": "a werewolf game bot for slack",
-  "main": "./dest/app.js",
+  "main": "./dest/index.js",
   "directories": {
     "doc": "docs"
   },
@@ -28,6 +28,7 @@
     "@reduxjs/toolkit": "^1.5.0",
     "@types/node": "^14.14.31",
     "dayjs": "^1.10.4",
+    "immutable": "^4.0.0-rc.12",
     "lodash": "^4.17.21",
     "redux": "^4.0.5",
     "redux-saga": "^1.1.3",
