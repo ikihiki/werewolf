@@ -5,4 +5,8 @@ export interface Config {
     numberOfKnight:number;
     numberOfPsychic:number;
     numberOfSharer:number;
+    dayLength: string;
+    nightLength: string;
+    voteLength: string;
+    finalVoteLength: string;
 }

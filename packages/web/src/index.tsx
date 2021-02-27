@@ -7,7 +7,12 @@ import { Provider } from 'react-redux';
 import * as serviceWorker from './serviceWorker';
 import { User } from 'werewolf/dest/user';
 import { Config } from 'werewolf/dest/config';
-import { CannelFactory, Channel } from 'werewolf/dest/channel';
+import dayjs from 'dayjs';
+import duration  from 'dayjs/plugin/duration';
+import { ChannelManager } from 'werewolf/dest/channel';
+import iziToast from 'izitoast';
+
+dayjs.extend(duration)
 
 const users = []
 for (let i = 1; i < 9; i++) {
@@ -19,25 +24,31 @@ const config: Config = {
   numberOfFortuneTeller: 1,
   numberOfKnight: 1,
   numberOfPsychic: 1,
-  numberOfSharer: 0
+  numberOfSharer: 0,
+  dayLength: dayjs.duration({hours:6}).toISOString(),
+  nightLength:dayjs.duration({hours:6}).toISOString(),
+  finalVoteLength: dayjs.duration({minutes:10}).toISOString(),
+  voteLength: dayjs.duration({minutes:20}).toISOString(),
 }
 
-const allChannel = {
-  Id: 'all',
-  Type: "All",
-  Send: (txt) => console.log(txt)
-} as Channel;
+const channelManager = {
+  Send: (target,message) => iziToast.info({
+    title: message.message,
+    message: `target: ${target}\nparam:${ JSON.stringify(message.param)}`,
+    timeout:50000
+  })
+} as ChannelManager;
 
-const channelFactory: CannelFactory = (participants, type) => ({
-  Id: type,
-  Type: type,
-  Participants: participants,
-  Send: (txt) => console.log(txt)
-})
+const scheduler: Scheduler = {
+  SetSchedule: date=>iziToast.success({
+    title: 'Schedule set',
+    message: `date is ${date.format()}`,
+    timeout:50000
+  })
+}
 
 
-
-const game = createGame(users, config, allChannel, channelFactory, { SetSchedule: date => console.log(date) })
+const game = createGame(users, config, channelManager,scheduler)
 
 ReactDOM.render(
   <React.StrictMode>

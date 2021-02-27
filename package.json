@@ -7,13 +7,14 @@
     "doc": "docs"
   },
   "scripts": {
-    "build": "tsc",
+    "bootstrap": "lerna bootstrap",
     "start": "node ./dest/app.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "watch": "tsc -w",
     "web": "react-scripts build",
-    "web:start": "react-scripts start"
+    "web:start": "lerna run start --scope web",
+    "lint:fix": "lerna run lint:fix"
   },
   "repository": {
     "type": "git",

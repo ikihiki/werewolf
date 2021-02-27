@@ -4,7 +4,7 @@ import './App.css';
 import { useSelector } from 'react-redux';
 import { Game, gameSelector, playersSelector, survivalPlayersSelector, usersSelector, votingTargetPlayersSeledtor } from 'werewolf/dest/game';
 import { UserId } from 'werewolf/dest/user';
-import { PlayerId, PlayerState, Position } from 'werewolf/dest/player';
+import { Camp, PlayerId, PlayerState, Position } from 'werewolf/dest/player';
 import { Button, Card, CardActions, CardContent, Container, GridList, GridListTile, ListSubheader, MenuItem, Select, Typography } from '@material-ui/core';
 
 const UserView = (prop: { id: UserId }) => {
@@ -38,7 +38,7 @@ const VoteControl = (prop: { player?: PlayerState, game: Game }) => {
       <Button onClick={() => {
         const target = prop.game.getPlayerByPlayerId(voteSelect)
         if (prop.player != null && target != null) {
-          prop.game.getPlayerByUserId(prop.player.User)?.Vote(target)
+          prop.game.getPlayerByUserId(prop.player.UserId)?.Vote(target)
         }
       }}>Vote</Button>
     </div>
@@ -59,7 +59,7 @@ const ComingOutControl = (prop: { player?: PlayerState, game: Game }) => {
       </Select>
       <Button onClick={() => {
         if (prop.player != null && comingOutSelect !== undefined) {
-          prop.game.getPlayerByUserId(prop.player.User)?.CamingOut(comingOutSelect)
+          prop.game.getPlayerByUserId(prop.player.UserId)?.CamingOut(comingOutSelect)
         }
       }}>ComingOut</Button>
     </div>
@@ -76,12 +76,12 @@ const BiteControl = (prop: { player?: PlayerState, game: Game }) => {
     <div>
       <Select value={biteSelect}
         onChange={handleChange}>
-        {survivalPlayer.filter(v => v.Id !== prop.player?.Id && v.Position !== "Werewolf").map(v => (<MenuItem value={v.Id}>{v.Id}</MenuItem>))}
+        {survivalPlayer.filter(v => v.Id !== prop.player?.Id && v.Position !== "Werewolf").map(v => (<MenuItem key={v.Id} value={v.Id}>{v.Id}</MenuItem>))}
       </Select>
       <Button onClick={() => {
         const target = prop.game.getPlayerByPlayerId(biteSelect)
         if (prop.player != null && target != null) {
-          prop.game.getPlayerByUserId(prop.player.User)?.Bite(target)
+          prop.game.getPlayerByUserId(prop.player.UserId)?.Bite(target)
         }
       }}>Bite</Button>
     </div>
@@ -98,12 +98,12 @@ const EscortControl = (prop: { player?: PlayerState, game: Game }) => {
     <div>
       <Select value={escortSelect}
         onChange={handleChange}>
-        {survivalPlayer.filter(v => v.Id !== prop.player?.Id).map(v => (<MenuItem value={v.Id}>{v.Id}</MenuItem>))}
+        {survivalPlayer.filter(v => v.Id !== prop.player?.Id).map(v => (<MenuItem key={v.Id} value={v.Id}>{v.Id}</MenuItem>))}
       </Select>
       <Button onClick={() => {
         const target = prop.game.getPlayerByPlayerId(escortSelect)
         if (prop.player != null && target != null) {
-          prop.game.getPlayerByUserId(prop.player.User)?.Escort(target)
+          prop.game.getPlayerByUserId(prop.player.UserId)?.Escort(target)
         }
       }}>Escort</Button>
     </div>
@@ -116,26 +116,26 @@ const ReportControl = (prop: { player?: PlayerState, game: Game }) => {
   const reportTargetChange = (event: React.ChangeEvent<{ value: unknown }>) => {
     setReportTargetSelect(event.target.value as PlayerId);
   };
-  const [reportPositionSelect, setReportPositionSelect] = React.useState<Position | undefined>(undefined);
+  const [reportPositionSelect, setReportPositionSelect] = React.useState<Camp | undefined>(undefined);
   const reportPositionChange = (event: React.ChangeEvent<{ value: unknown }>) => {
-    setReportPositionSelect(event.target.value as Position);
+    setReportPositionSelect(event.target.value as Camp);
   };
   return (
     <div>
       <Select value={reportTargetSelect}
         onChange={reportTargetChange}>
-        {players.filter(v => v.Id !== prop.player?.Id).map(v => (<MenuItem value={v.Id}>{v.Id}</MenuItem>))}
+        {players.filter(v => v.Id !== prop.player?.Id).map(v => (<MenuItem key={v.Id} value={v.Id}>{v.Id}</MenuItem>))}
       </Select>
       <Select value={reportPositionSelect}
         onChange={reportPositionChange}>
-        <MenuItem value={"FortuneTeller" as Position}>{"FortuneTeller" as Position}</MenuItem>
-        <MenuItem value={"Psychic" as Position}>{"Psychic" as Position}</MenuItem>
+        <MenuItem value={"Werewolf Side" as Camp}>{"Werewolf Side" as Camp}</MenuItem>
+        <MenuItem value={"Citizen Side" as Camp}>{"Citizen Side" as Camp}</MenuItem>
       </Select>
       <Button onClick={() => {
         if (reportPositionSelect && reportTargetSelect) {
           const target = prop.game.getPlayerByPlayerId(reportTargetSelect)
           if (prop.player != null && target != null) {
-            prop.game.getPlayerByUserId(prop.player.User)?.Report({ target: target.Id, position: reportPositionSelect })
+            prop.game.getPlayerByUserId(prop.player.UserId)?.Report({ target: target.Id, camp: reportPositionSelect })
           }
         }
       }}>Report</Button>
@@ -159,7 +159,7 @@ const PlayerView = (prop: { id: PlayerId, game: Game }) => {
           Id: {player?.Id}
         </Typography>
         <Typography variant="h5" component="h2">
-          User: {player?.User}
+          User: {player?.UserId}
         </Typography>
         <Typography color="textSecondary" gutterBottom>
           Camp: {player?.Camp}
@@ -186,11 +186,16 @@ const PlayerView = (prop: { id: PlayerId, game: Game }) => {
           VoteTo: {player?.VoteTo}
         </Typography>
       </CardContent>
+      {
+        player?.IsSurvival?
+      (<>
       <VoteControl player={player} game={prop.game} />
       <ComingOutControl player={player} game={prop.game} />
       { player?.Position === "Werewolf" && <BiteControl player={player} game={prop.game} />}
       { player?.Position === "Knight" && <EscortControl player={player} game={prop.game} />}
-      { player?.CamingOut && <ReportControl player={player} game={prop.game} />}
+      { player?.CamingOut && <ReportControl player={player} game={prop.game} />}</>)
+      :<></>
+}
     </Card>
   )
 }
@@ -198,7 +203,7 @@ const PlayerView = (prop: { id: PlayerId, game: Game }) => {
 
 function App(prop: { game: Game }) {
   const gameState = useSelector(gameSelector)
-  const Users = useSelector(usersSelector).map(user => <GridListTile ><UserView id={user.Id} /></GridListTile>)
+  const Users = useSelector(usersSelector).map(user => <GridListTile ><UserView key={user.Id} id={user.Id} /></GridListTile>)
   const players = useSelector(playersSelector);
   return (
     <Container>
@@ -220,8 +225,8 @@ function App(prop: { game: Game }) {
           <ListSubheader component="div">Players</ListSubheader>
         </GridListTile>
         {players.map(player => (
-          <GridListTile style={{ height: 'auto' }}>
-            <PlayerView key={player.Id} game={prop.game} id={player.Id} />
+          <GridListTile key={player.Id} style={{ height: 'auto' }}>
+            <PlayerView  game={prop.game} id={player.Id} />
           </GridListTile>
         ))}
       </GridList>
