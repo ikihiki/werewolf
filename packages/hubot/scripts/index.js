@@ -44,9 +44,6 @@ var yargs_1 = __importDefault(require("yargs"));
 var node_schedule_1 = require("node-schedule");
 var pino_1 = __importDefault(require("pino"));
 var i18next_1 = __importDefault(require("i18next"));
-// dayjs.extend(duration)
-// dayjs.extend(utc)
-// dayjs.extend(timezone)
 var stateKey = 'state';
 var logger = pino_1.default();
 i18next_1.default.init({
