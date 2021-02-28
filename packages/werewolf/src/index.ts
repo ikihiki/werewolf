@@ -1,6 +1,7 @@
 export { Config } from './config'
 export * from './service'
 export * from './error'
-export * from './message'
+export * from './channel'
 export * from './scheduler'
 export { User, UserId } from './user'
+export { RootState } from './game'

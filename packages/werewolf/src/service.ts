@@ -1,7 +1,7 @@
 import { Config } from './config'
 import { Game, RootState } from './game'
 import { Scheduler } from './scheduler'
-import { ChannelId, ChannelManager } from './message'
+import { ChannelId, ChannelManager } from './channel'
 import { Camp, createCitizenStore, createFortuneTellerStore, createKnightStore, createPsychicStore, createPsychoStore, createSharerStore, createWerewolfStore, PlayerState, Position } from './player'
 import { User, UserId } from './user'
 import { ErrorMessage } from './error'
@@ -13,7 +13,7 @@ function getRandomInt (max: number) {
 export const createGame = (
   users: User[],
   config: Config,
-  messageTransmitter: ChannelManager,
+  channelManager: ChannelManager,
   scheduler: Scheduler,
   allChannelId: ChannelId
 ): Game => {
@@ -53,7 +53,7 @@ export const createGame = (
   }
 
   return new Game(
-    messageTransmitter,
+    channelManager,
     scheduler,
     players,
     users,
@@ -64,18 +64,22 @@ export const createGame = (
 
 export const storeGame = (
   state: RootState,
-  messageTransmitter: ChannelManager,
+  channelManager: ChannelManager,
   scheduler: Scheduler
 ) => {
   return new Game(
-    messageTransmitter,
+    channelManager,
     scheduler,
     state
   )
 }
 
-export const bite = (state: RootState, messageTransmitter: ChannelManager, scheduler: Scheduler, user: UserId, targetUser: UserId) => {
-  const game = storeGame(state, messageTransmitter, scheduler)
+export const bite = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId) => {
+  const game = storeGame(state, channelManager, scheduler)
+  const channel = game.getChannel(channelId)
+  if (channel?.Target === 'Werewolf') {
+    throw new Error('Worng channel.'as ErrorMessage)
+  }
   if (!game.isNight()) {
     throw new Error("It's not night, so I can't run it."as ErrorMessage)
   }
@@ -91,8 +95,12 @@ export const bite = (state: RootState, messageTransmitter: ChannelManager, sched
   return game.getState()
 }
 
-export const fortune = (state: RootState, messageTransmitter: ChannelManager, scheduler: Scheduler, user: UserId, targetUser: UserId) => {
-  const game = storeGame(state, messageTransmitter, scheduler)
+export const fortune = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId) => {
+  const game = storeGame(state, channelManager, scheduler)
+  const channel = game.getChannel(channelId)
+  if (channel?.isDm(user) !== true) {
+    throw new Error('Worng channel.'as ErrorMessage)
+  }
   if (!game.isNight()) {
     throw new Error("It's not night, so I can't run it."as ErrorMessage)
   }
@@ -107,8 +115,12 @@ export const fortune = (state: RootState, messageTransmitter: ChannelManager, sc
   return player.Fortune(targetPlayer)
 }
 
-export const escort = (state: RootState, messageTransmitter: ChannelManager, scheduler: Scheduler, user: UserId, targetUser: UserId) => {
-  const game = storeGame(state, messageTransmitter, scheduler)
+export const escort = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId) => {
+  const game = storeGame(state, channelManager, scheduler)
+  const channel = game.getChannel(channelId)
+  if (channel?.isDm(user) !== true) {
+    throw new Error('Worng channel.'as ErrorMessage)
+  }
   if (!game.isNight()) {
     throw new Error("It's not night, so I can't run it."as ErrorMessage)
   }
@@ -124,8 +136,12 @@ export const escort = (state: RootState, messageTransmitter: ChannelManager, sch
   return game.getState()
 }
 
-export const comingOut = (state: RootState, messageTransmitter: ChannelManager, scheduler: Scheduler, user: UserId, position: Position, targetUser?: UserId, camp?: Camp) => {
-  const game = storeGame(state, messageTransmitter, scheduler)
+export const comingOut = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, position: Position, targetUser?: UserId, camp?: Camp) => {
+  const game = storeGame(state, channelManager, scheduler)
+  const channel = game.getChannel(channelId)
+  if (channel?.Target !== 'All') {
+    throw new Error('Worng channel.'as ErrorMessage)
+  }
   if (game.isNight()) {
     throw new Error("It's night, so I can't run it."as ErrorMessage)
   }
@@ -144,8 +160,12 @@ export const comingOut = (state: RootState, messageTransmitter: ChannelManager, 
   return game.getState()
 }
 
-export const report = (state: RootState, messageTransmitter: ChannelManager, scheduler: Scheduler, user: UserId, targetUser: UserId, camp: Camp) => {
-  const game = storeGame(state, messageTransmitter, scheduler)
+export const report = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId, camp: Camp) => {
+  const game = storeGame(state, channelManager, scheduler)
+  const channel = game.getChannel(channelId)
+  if (channel?.Target !== 'All') {
+    throw new Error('Worng channel.'as ErrorMessage)
+  }
   if (game.isNight()) {
     throw new Error("It's night, so I can't run it."as ErrorMessage)
   }
@@ -161,8 +181,12 @@ export const report = (state: RootState, messageTransmitter: ChannelManager, sch
   return game.getState()
 }
 
-export const vote = (state: RootState, messageTransmitter: ChannelManager, scheduler: Scheduler, user: UserId, targetUser: UserId) => {
-  const game = storeGame(state, messageTransmitter, scheduler)
+export const vote = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId) => {
+  const game = storeGame(state, channelManager, scheduler)
+  const channel = game.getChannel(channelId)
+  if (channel?.Target !== 'All') {
+    throw new Error('Worng channel.'as ErrorMessage)
+  }
   if (!game.isVoteTime()) {
     throw new Error("It's not vote time, so I can't run it."as ErrorMessage)
   }

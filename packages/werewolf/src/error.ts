@@ -4,3 +4,4 @@ export type ErrorMessage =
 |"It's not vote time, so I can't run it."
 | "Couldn't find the player."
 | "Couldn't find the target."
+| 'Worng channel.'

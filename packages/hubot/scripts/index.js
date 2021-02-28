@@ -9,15 +9,11 @@ var node_schedule_1 = require("node-schedule");
 module.exports = function (robot) {
     var messageTransmitter = {
         Send: function (target, message) {
-            if (target === 'All') {
-                var room = robot.brain.get('allRoom');
-                if (room) {
-                    robot.messageRoom(room, JSON.stringify(message));
-                }
-            }
-            else {
-                robot.messageRoom(target.join(','), JSON.stringify(message));
-            }
+            robot.messageRoom(target, JSON.stringify(message));
+        },
+        Join: function (userIds) {
+            //robot.adapter.
+            return 'a';
         }
     };
     var fireSchedule = function () {
@@ -32,10 +28,10 @@ module.exports = function (robot) {
             });
         }
     };
-    robot.respond(/debug/, function (res) {
+    robot.hear(/debug/, function (res) {
         res.reply(robot.brain.get('state'));
     });
-    robot.respond(/NewGame(.*)/i, function (res) {
+    robot.hear(/NewGame(.*)/i, function (res) {
         var _a;
         if (!res.message.text) {
             return;
@@ -100,15 +96,51 @@ module.exports = function (robot) {
             voteLength: argv.vote,
             finalVoteLength: argv.finalVote
         };
-        robot.brain.set('allRoom', res.message.room);
         var users = userIds.map(function (user) { return ({ Id: user, Name: user }); });
-        var game = werewolf_1.createGame(users, config, messageTransmitter, sheduler);
+        var game = werewolf_1.createGame(users, config, messageTransmitter, sheduler, res.message.room);
         robot.brain.set('state', game.getState());
     });
-    robot.respond(/CO\s(\w+)(\s+(\w+)\s+(\w+))?/, function (res) {
+    robot.hear(/CO\s(\w+)(\s+(\w+)\s+(\w+))?/, function (res) {
         console.log(res.match);
         var state = robot.brain.get('state');
         var game = werewolf_1.storeGame(state, messageTransmitter, sheduler);
+        var player = game.getPlayerByUserId(res.message.user.id);
+        robot.brain.set('state', game.getState());
+    });
+    robot.hear(/[rR]eport\s(\w+)\s+(\w+)/, function (res) {
+        console.log(res.match);
+        var state = robot.brain.get('state');
+        var game = werewolf_1.storeGame(state, messageTransmitter, sheduler);
+        var player = game.getPlayerByUserId(res.message.user.id);
+        robot.brain.set('state', game.getState());
+    });
+    robot.hear(/[bB]ite\s(\w+)/, function (res) {
+        console.log(res.match);
+        console.log(JSON.stringify({ mes: res.message, mat: res.match, env: res.envelope }, null, 2));
+        var state = robot.brain.get('state');
+        var game = werewolf_1.storeGame(state, messageTransmitter, sheduler);
+        var player = game.getPlayerByUserId(res.message.user.id);
+        robot.brain.set('state', game.getState());
+    });
+    robot.hear(/[fF]ortune\s(\w+)/, function (res) {
+        console.log(res.match);
+        var state = robot.brain.get('state');
+        var game = werewolf_1.storeGame(state, messageTransmitter, sheduler);
+        var player = game.getPlayerByUserId(res.message.user.id);
+        robot.brain.set('state', game.getState());
+    });
+    robot.hear(/[eE]scort\s(\w+)/, function (res) {
+        console.log(res.match);
+        var state = robot.brain.get('state');
+        var game = werewolf_1.storeGame(state, messageTransmitter, sheduler);
+        var player = game.getPlayerByUserId(res.message.user.id);
+        robot.brain.set('state', game.getState());
+    });
+    robot.hear(/[vV]ote\s(\w+)/, function (res) {
+        console.log(res.match);
+        var state = robot.brain.get('state');
+        var game = werewolf_1.storeGame(state, messageTransmitter, sheduler);
+        var player = game.getPlayerByUserId(res.message.user.id);
         robot.brain.set('state', game.getState());
     });
 };

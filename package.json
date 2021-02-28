@@ -10,13 +10,12 @@
     "bootstrap": "lerna bootstrap",
     "link": "lerna link",
     "lint:fix": "lerna run lint:fix",
+    "build": "lerna run build",
     "core:build": "lerna run build --scope werewolf",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "watch": "tsc -w",
     "web:build": "react-scripts build",
     "web:start": "lerna run start --scope web",
-    "hubot:build": "lerna run build --scope werewolf-hubot"
+    "hubot:build": "lerna run build --scope werewolf-hubot",
+    "hubot:start": "lerna run start --scope werewolf-hubot"
   },
   "repository": {
     "type": "git",

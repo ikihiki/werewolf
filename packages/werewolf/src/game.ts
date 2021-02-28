@@ -36,7 +36,7 @@ import {
   PayloadAction,
   createSelector
 } from '@reduxjs/toolkit'
-import { ChannelManager, MessageTarget, Message, channelSline, createChannelSelector, ChannelState, addChannel, ChannelId, sendMessage } from './message'
+import { ChannelManager, MessageTarget, Message, channelSline, createChannelWithTargetSelector, ChannelState, addChannel, ChannelId, sendMessage, createChannelSelector, Channel } from './channel'
 import createSagaMiddleware from 'redux-saga'
 import { all, call, put, select, takeEvery } from 'redux-saga/effects'
 import groupBy from 'lodash/fp/groupBy'
@@ -117,6 +117,7 @@ export const phaseSelector = (state: RootState) => gameSelector(state).Phase
 export const configSelector = (state: RootState) => gameSelector(state).Config
 export const channelsSelector = (state:RootState) => state.channels
 export const channelSelector = createChannelSelector(channelsSelector)
+export const channelWithTargetSelector = createChannelWithTargetSelector(channelsSelector)
 
 const judgeWin = function * () {
   const survivalPlayers: PlayerState[] = yield select(
@@ -266,7 +267,7 @@ const timeoutTask = function * () {
 }
 
 export function * sendMessageTask (messageTransmitter: ChannelManager, action: ReturnType<typeof sendMessage>) {
-  const channel:ChannelState = yield select(channelSelector, action.payload.target)
+  const channel:ChannelState = yield select(channelWithTargetSelector, action.payload.target)
   messageTransmitter.Send(channel.Id, action.payload.message)
 }
 
@@ -390,5 +391,14 @@ export class Game {
 
   isVoteTime () {
     return gameSelector(this.getState()).Phase === 'Vote'
+  }
+
+  getChannel (id:ChannelId) {
+    const state = channelSelector(this.getState(), id)
+    if (state === undefined) {
+      return undefined
+    } else {
+      return new Channel(state)
+    }
   }
 }

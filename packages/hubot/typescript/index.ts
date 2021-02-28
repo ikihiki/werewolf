@@ -1,22 +1,21 @@
 import { Robot } from "hubot";
-import { Config, createGame, ChannelManager, MessageTarget, Scheduler, storeGame, User } from "werewolf";
+import { Config, createGame, ChannelManager, RootState, Scheduler, storeGame, User, bite, fortune, escort, vote} from "werewolf";
 import yargs from "yargs";
 import { scheduleJob } from "node-schedule";
-import { RootState } from "werewolf/dest/game";
 
 module.exports = (robot: Robot) => {
-    const messageTransmitter: ChannelManager = {
+    const channelManager: ChannelManager = {
         Send: (target, message) => {
             robot.messageRoom(target, JSON.stringify(message))
         },
         Join:(userIds)=>{
-            robot.adapter.
+            //robot.adapter.
             return 'a'
         }
     }
     const fireSchedule = () => {
         const state = robot.brain.get('state')
-        const game = storeGame(state, messageTransmitter, sheduler)
+        const game = storeGame(state, channelManager, sheduler)
         game.TimeOut()
     }
     const sheduler: Scheduler = {
@@ -28,11 +27,11 @@ module.exports = (robot: Robot) => {
     }
 
 
-    robot.hear(/debug/, res=>{
+    robot.respond(/debug/, res=>{
         res.reply(robot.brain.get('state'))
     })
 
-    robot.hear(/NewGame(.*)/i, (res) => {
+    robot.respond(/NewGame(.*)/i, (res) => {
         if (!res.message.text) {
             return
         }
@@ -100,16 +99,47 @@ module.exports = (robot: Robot) => {
         }
 
         const users = userIds.map(user => ({ Id: user, Name: user } as User))
-        const game = createGame(users, config, messageTransmitter, sheduler, res.message.room)
+        const game = createGame(users, config, channelManager, sheduler, res.message.room)
         robot.brain.set('state', game.getState())
     })
 
-    robot.hear(/CO\s(\w+)(\s+(\w+)\s+(\w+))?/, res => {
+    robot.respond(/CO\s(\w+)(\s+(\w+)\s+(\w+))?/, res => {
         console.log(res.match)
         const state = robot.brain.get('state')
-        const game = storeGame(state, messageTransmitter, sheduler)
+        const game = storeGame(state, channelManager, sheduler)
         const player = game.getPlayerByUserId(res.message.user.id)
-        player?.CamingOut()
         robot.brain.set('state', game.getState())
+    })
+
+    robot.respond(/[rR]eport\s(\w+)\s+(\w+)/, res => {
+        console.log(res.match)
+        const state = robot.brain.get('state')
+        const game = storeGame(state, channelManager, sheduler)
+        const player = game.getPlayerByUserId(res.message.user.id)
+        robot.brain.set('state', game.getState())
+    })
+
+    robot.respond(/[bB]ite\s(\w+)/, res => {
+        const state = robot.brain.get('state')
+        const next = bite(state, channelManager, sheduler, res.message.room, res.message.user.id, res.match[1])
+        robot.brain.set('state', next)
+    })
+
+    robot.respond(/[fF]ortune\s(\w+)/, res => {
+        const state = robot.brain.get('state')
+        const result = fortune(state, channelManager, sheduler, res.message.room, res.message.user.id, res.match[1])
+        res.reply(result)
+    })
+
+    robot.respond(/[eE]scort\s(\w+)/, res => {
+        const state = robot.brain.get('state')
+        const next = escort(state, channelManager, sheduler, res.message.room, res.message.user.id, res.match[1])
+        robot.brain.set('state', next)
+    })
+
+    robot.respond(/[vV]ote\s(\w+)/, res => {
+        const state = robot.brain.get('state')
+        const next = vote(state, channelManager, sheduler, res.message.room, res.message.user.id, res.match[1])
+        robot.brain.set('state', next)
     })
 }

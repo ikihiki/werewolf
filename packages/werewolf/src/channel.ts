@@ -93,7 +93,18 @@ function arrayEqual<Element> (a:Element[], b:Element[]):boolean {
   }
   return true
 }
+
 export function createChannelSelector<RootState> (channelsSelector: (state: RootState) => ChannelsState) {
+  return createSelector(
+    (state: RootState) => channelsSelector(state),
+    (_: RootState, id: ChannelId) => id,
+    (state, id) => {
+      return Array.from(state.values()).find(channel => channel.Id === id)
+    }
+  )
+}
+
+export function createChannelWithTargetSelector<RootState> (channelsSelector: (state: RootState) => ChannelsState) {
   return createSelector(
     (state: RootState) => channelsSelector(state),
     (_: RootState, target: MessageTarget) => target,
@@ -109,4 +120,31 @@ export function createChannelSelector<RootState> (channelsSelector: (state: Root
       }
     }
   )
+}
+
+export class Channel {
+  #id:ChannelId
+  get Id () {
+    return this.#id
+  }
+
+  #target:MessageTarget
+  get Target () {
+    return this.#target
+  }
+
+  #users:UserId[]
+  get Users () {
+    return this.#users
+  }
+
+  constructor (state: ChannelState) {
+    this.#id = state.Id
+    this.#target = state.Target
+    this.#users = state.Users
+  }
+
+  isDm (user:UserId) {
+    return this.Target instanceof Array && this.Target.length === 1 && this.#target[0] === user
+  }
 }

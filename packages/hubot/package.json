@@ -5,7 +5,9 @@
   "author": "伊吹英晃 <ibuki-90@hotmail.co.jp>",
   "description": "A simple helpful robot for your Company",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "start": "hubot --name \"werewolf-hubot\"",
+    "restart": "npm run build && hubot --name \"werewolf-hubot\""
   },
   "dependencies": {
     "@types/hubot": "^3.3.0",
