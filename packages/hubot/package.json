@@ -7,10 +7,10 @@
   "scripts": {
     "build": "tsc",
     "start": "hubot --name \"werewolf-hubot\"",
+    "start:slack": "hubot --name \"werewolf-hubot\" -a slack",
     "restart": "npm run build && hubot --name \"werewolf-hubot\""
   },
   "dependencies": {
-    "@types/hubot": "^3.3.0",
     "hubot": "^3.3.2",
     "hubot-diagnostics": "^1.0.0",
     "hubot-google-images": "^0.2.7",
@@ -25,6 +25,7 @@
     "hubot-shipit": "^0.2.1",
     "hubot-slack": "^4.9.0",
     "node-schedule": "^2.0.0",
+    "pino": "^6.11.1",
     "werewolf": "^1.0.0",
     "yargs": "^16.2.0"
   },
@@ -32,6 +33,8 @@
     "node": "0.10.x"
   },
   "devDependencies": {
+    "@types/hubot": "^3.3.0",
+    "@types/pino": "^6.3.6",
     "@types/node-schedule": "^1.3.1",
     "@types/yargs": "^16.0.0",
     "typescript": "^4.2.2"
