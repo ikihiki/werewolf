@@ -1,64 +1,37 @@
 import { createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { Dayjs } from 'dayjs'
 import { Position } from './player'
-import { UserId } from './user'
+import { User, UserId } from './user'
 import * as Immutable from 'immutable'
-import { select } from 'redux-saga/effects'
-import { strict } from 'assert'
+import { OmitByValue, PickByValue, ValuesType } from 'utility-types'
 
-export type Message =
-    {
-        message: '{{name}} is executed.'
-        param: { name: string }
-    }
-    |{
-        message: 'It\'s morning. (Day {{day}})'
-        param: { day: number }
-    }
-    |{
-        message: 'Citizen side win!'
-        param?: undefined
-    }
-    |{
-        message: 'Werewolf side win!'
-        param?: undefined
-    }
-    |{
-        message: '{{name}} was found dead in a heap.'
-        param: { name: string }
-    }
-    |{
-        message: 'The morning was uneventful.'
-        param?: undefined
-    }
-    |{
-        message: '{{name}} that was executed was a werewolf.'
-        param: { name: string }
-    }
-    |{
-        message: '{{name}} that was executed was a citizen.'
-        param: { name: string }
-    }
-    |{
-        message: 'You are {{position}}'
-        param: { position: Position }
-    }
-    |{
-        message: 'It\'s night.',
-        param?: undefined
-    }
-    |{
-        message: 'It\'s vote time.',
-        param?: undefined
-    }
-    |{
-        message: 'Final Vote. subject are {{ names }}'
-        param: { names: string }
-    }
-    |{
-        message: 'The next phase is {{date}}'
-        param: { date: Dayjs }
-    }
+type MessageTemplate = {
+  '{{user.Name}} is executed.': { user: User }
+  'It\'s morning. (Day {{day}})':{ day: number }
+  'Citizen side win!':undefined
+  'Werewolf side win!':undefined
+  '{{user.Name}} was found dead in a heap.':{ user: User }
+  'The morning was uneventful.':undefined
+  '{{user.Name}} that was executed was a werewolf.':{ user: User }
+  '{{user.Name}} that was executed was a citizen.':{ user: User }
+  'You are {{position}}':{ position: Position }
+  'It\'s night.':undefined
+  'It\'s vote time.':undefined
+  'Final Vote. subject are {{ users.Name }}':{ users: User[] }
+  'The next phase is {{date}}':{ date: Dayjs }
+  'The werewolf game start': undefined
+}
+export type MessageStrings = keyof MessageTemplate
+type HasParamMessage = OmitByValue<MessageTemplate, undefined>
+type HasParamTempMessage = {
+  [Key in keyof HasParamMessage]:{message:Key, param:HasParamMessage[Key]}
+}
+type NoParamMessage = PickByValue<MessageTemplate, undefined>
+type NoParamTempMessage = {
+  [Key in keyof NoParamMessage]:{message:Key, param?:NoParamMessage[Key]}
+}
+export type Message = ValuesType<HasParamTempMessage> | ValuesType<NoParamTempMessage>
+
 export type MessageTarget = 'All'|'Werewolf'|'Sherer' | UserId[]
 export type ChannelId =string
 export interface ChannelManager {

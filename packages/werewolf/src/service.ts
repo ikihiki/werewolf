@@ -7,8 +7,12 @@ import { User, UserId } from './user'
 import { ErrorMessage } from './error'
 import pino, { Logger } from 'pino'
 
-function getRandomInt (max: number) {
-  return Math.floor(Math.random() * Math.floor(max))
+function shuffle<T> ([...array]:Array<T>):Array<T> {
+  for (let i = array.length - 1; i >= 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]]
+  }
+  return array
 }
 
 export const createGame = (
@@ -20,36 +24,49 @@ export const createGame = (
 ): Game => {
   const gameId = Date.now().toString()
   const players: PlayerState[] = []
-  const unselectedUsers = [...users]
-  const selectUser = () => {
-    const number = getRandomInt(unselectedUsers.length - 1)
-    return unselectedUsers.splice(number, 1)[0]
-  }
+  const shuffledUsers = shuffle(users)
   for (let i = 0; i < config.numberOfWerewolf; i++) {
-    const user = selectUser()
+    const user = shuffledUsers.pop()
+    if (!user) {
+      throw new Error('なんか役職のプレイヤーがおらん')
+    }
     players.push(createWerewolfStore(`${gameId}-${user.Id}`, user))
   }
   for (let i = 0; i < config.numberOfPsycho; i++) {
-    const user = selectUser()
+    const user = shuffledUsers.pop()
+    if (!user) {
+      throw new Error('なんか役職のプレイヤーがおらん')
+    }
     players.push(createPsychoStore(`${gameId}-${user.Id}`, user))
   }
   for (let i = 0; i < config.numberOfFortuneTeller; i++) {
-    const user = selectUser()
-    players.push(createFortuneTellerStore(`${gameId}-${user.Id}`, user))
+    const user = shuffledUsers.pop()
+    if (!user) {
+      throw new Error('なんか役職のプレイヤーがおらん')
+    } players.push(createFortuneTellerStore(`${gameId}-${user.Id}`, user))
   }
   for (let i = 0; i < config.numberOfKnight; i++) {
-    const user = selectUser()
+    const user = shuffledUsers.pop()
+    if (!user) {
+      throw new Error('なんか役職のプレイヤーがおらん')
+    }
     players.push(createKnightStore(`${gameId}-${user.Id}`, user))
   }
   for (let i = 0; i < config.numberOfPsychic; i++) {
-    const user = selectUser()
+    const user = shuffledUsers.pop()
+    if (!user) {
+      throw new Error('なんか役職のプレイヤーがおらん')
+    }
     players.push(createPsychicStore(`${gameId}-${user.Id}`, user))
   }
   for (let i = 0; i < config.numberOfSharer; i++) {
-    const user = selectUser()
+    const user = shuffledUsers.pop()
+    if (!user) {
+      throw new Error('なんか役職のプレイヤーがおらん')
+    }
     players.push(createSharerStore(`${gameId}-${user.Id}`, user))
   }
-  for (const user of unselectedUsers) {
+  for (const user of shuffledUsers) {
     players.push(createCitizenStore(`${gameId}-${user.Id}`, user))
   }
 

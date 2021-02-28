@@ -1,19 +1,82 @@
 import { Robot } from "hubot";
-import { Config, createGame, ChannelManager, RootState, Scheduler, storeGame, User, bite, fortune, escort, vote} from "werewolf";
+import { Config, createGame, ChannelManager, RootState, Scheduler, storeGame, User, bite, fortune, escort, vote, MessageStrings, ErrorMessage,Camp, Position, Message} from "werewolf";
 import yargs from "yargs";
 import { scheduleJob } from "node-schedule";
 import pino from "pino";
 import { WebClient } from "@slack/web-api";
+import i18next from "i18next";
+import dayjs from 'dayjs'
+import duration from 'dayjs/plugin/duration'
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 
 const stateKey = 'state'
 const logger = pino()
+i18next.init({
+    lng:'ja',
+    resources:{
+        ja:{
+            translation:{
+                "Citizen side win!": "市民が勝利しました。",
+                "Couldn't find the player.":'あなたはゲームに参加していません。',
+                "Couldn't find the target.":'指定されたユーザーはゲームに参加していません。',
+                "Final Vote. subject are {{ users.Name }}":'決選投票を行います。対象は{{userIds}}です。',
+                "It's morning. (Day {{day}})":"朝を迎えました。({day}日目)",
+                "It's night, so I can't run it.":"夜フェーズのため実行できません。",
+                "It's night.": "夜になりました。",
+                "It's not night, so I can't run it.":"夜フェーズではないため実行できません。",
+                "It's not vote time, so I can't run it.": "投票フェーズではないため実行できません。",
+                "It's vote time.": "投票の時がやってきました。",
+                "The morning was uneventful.":"誰も殺されることなく、爽やかな朝となりました。",
+                "The next phase is {{date}}": "次のフェーズは{{date}}に始まります。",
+                "Werewolf side win!": "人狼が勝利しました。",
+                "Worng channel.": "このチャンネルでは実行出来ません。",
+                "You are {{position}}": "あなたは”{{position}}”です。",
+                "{{user.Name}} is executed.": "{{user.Id}}は処刑されました。",
+                "{{user.Name}} that was executed was a citizen.": "処刑された{{user.Id}}は市民でした。",
+                "{{user.Name}} that was executed was a werewolf.": "処刑された{{user.Id}}は人狼でした。",
+                "{{user.Name}} was found dead in a heap.": "{{user.Id}}は無残な死体となって発見されました。",
+                "The werewolf game start": "人狼ゲームを開始します。",
+                "Citizen Side": "市民",
+                "Werewolf Side": "人狼",
+                "Citizen": "市民",
+                FortuneTeller: "占い師",
+                Knight: "騎士",
+                Psychic:"霊媒師",
+                Psycho: "狂人",
+                Sharer: "共有者",
+                Werewolf: "人狼"
+            } as {
+                [K in MessageStrings | ErrorMessage | Camp | Position]: string;
+            }
+        }
+    }
+})
+
+
+function translate(message: Message){
+    if(message.message === "You are {{position}}"){
+        return i18next.t(message.message, {position: i18next.t(message.param.position)})
+    }
+    if(message.message === 'The next phase is {{date}}'){
+        return i18next.t(message.message, {date: message.param.date.tz('Asia/Tokyo').format('YYYY年M月D日 HH:mm:ss')})
+    }
+    if(message.message === 'Final Vote. subject are {{ users.Name }}'){
+        return i18next.t(message.message, {userIds: message.param.users.map(user=>user.Id).join(',')})
+    }
+    if(message.param){
+        return i18next.t(message.message, message.param as any)
+    }
+    return i18next.t(message.message)
+    
+}
+
 module.exports = (robot: Robot) => {
     const channelManager: ChannelManager = {
         Send: (target, message) => {
-            robot.messageRoom(target, JSON.stringify(message))
+            robot.messageRoom(target, translate(message))
         },
         Join: async (userIds)=>{
-            console.log(userIds)
             if(userIds.length === 1){
                 return userIds[0]
             }else{
@@ -66,6 +129,7 @@ module.exports = (robot: Robot) => {
             res.reply('ゲームが進行中です。')
             return
         }
+        
         const paser = yargs
             .scriptName("werewolf")
             .command('NewGame <users>', 'New game', args =>
@@ -144,6 +208,7 @@ module.exports = (robot: Robot) => {
             res.reply(`${invalidUserName.join(', ')}は認識できませんでした。`)
             return
         }
+        res.reply("ゲームの作成を開始しました。")
         const users = userMatchs.map(match=>new User(match.user!.id, match.user!.name))
         const game = createGame(users, config, channelManager, sheduler, res.message.room)
         await game.startGame()
@@ -167,26 +232,66 @@ module.exports = (robot: Robot) => {
     })
 
     robot.respond(/[bB]ite\s(\w+)/, res => {
-        const state = robot.brain.get('state')
-        const next = bite(state, channelManager, sheduler, res.message.room, res.message.user.id, res.match[1])
-        robot.brain.set('state', next)
+        try{
+            const userName =res.match[1].replace('@', '')
+            const userId = robot.brain.userForName(userName)
+            if(userId === null){
+                res.reply(`${userName}は見つかりませんでした`)
+                return
+            }
+            const state = robot.brain.get('state')
+            const next = bite(state, channelManager, sheduler, res.message.room, res.message.user.id, userId.id)
+            robot.brain.set('state', next)
+        }catch(e){
+            res.reply(JSON.stringify(e))
+        }
     })
 
     robot.respond(/[fF]ortune\s(\w+)/, res => {
-        const state = robot.brain.get('state')
-        const result = fortune(state, channelManager, sheduler, res.message.room, res.message.user.id, res.match[1])
-        res.reply(result)
+        try{
+            const userName =res.match[1].replace('@', '')
+            const userId = robot.brain.userForName(userName)
+            if(userId === null){
+                res.reply(`${userName}は見つかりませんでした`)
+                return
+            }
+            const state = robot.brain.get('state')
+            const result = fortune(state, channelManager, sheduler, res.message.room, res.message.user.id, userId.id)
+            res.reply(`@${userId}は${result}です。`)
+        }catch(e){
+            res.reply(JSON.stringify(e))
+        }    
     })
 
     robot.respond(/[eE]scort\s(\w+)/, res => {
-        const state = robot.brain.get('state')
-        const next = escort(state, channelManager, sheduler, res.message.room, res.message.user.id, res.match[1])
-        robot.brain.set('state', next)
+        try{
+            const userName =res.match[1].replace('@', '')
+            const userId = robot.brain.userForName(userName)
+            if(userId === null){
+                res.reply(`${userName}は見つかりませんでした`)
+                return
+            }
+            const state = robot.brain.get('state')
+            const next = escort(state, channelManager, sheduler, res.message.room, res.message.user.id, userId.id)
+            robot.brain.set('state', next)
+        }catch(e){
+            res.reply(JSON.stringify(e))
+        }    
     })
 
     robot.respond(/[vV]ote\s(\w+)/, res => {
-        const state = robot.brain.get('state')
-        const next = vote(state, channelManager, sheduler, res.message.room, res.message.user.id, res.match[1])
-        robot.brain.set('state', next)
+        try{
+            const userName =res.match[1].replace('@', '')
+            const userId = robot.brain.userForName(userName)
+            if(userId === null){
+                res.reply(`${userName}は見つかりませんでした`)
+                return
+            }
+            const state = robot.brain.get('state')
+            const next = vote(state, channelManager, sheduler, res.message.room, res.message.user.id, userId.id)
+            robot.brain.set('state', next)
+        }catch(e){
+            res.reply(JSON.stringify(e))
+        }    
     })
 }

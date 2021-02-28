@@ -1,6 +1,7 @@
 import {
   createUserSelector,
   setInitialUserState,
+  stateToUser,
   User,
   UserId,
   userSlice,
@@ -44,11 +45,15 @@ import { chunk, max } from 'lodash'
 import { compose } from 'redux'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 import { Scheduler } from './scheduler'
 
 import Immutable from 'immutable'
 
 dayjs.extend(duration)
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 export type GameId = string;
 export type Phase = 'BeforGame'|'Daytime' | 'Vote' | 'Night' | 'GameOver';
@@ -187,9 +192,11 @@ function * totalVote () {
     if (target) {
       yield put(resetVote())
       yield put(execute({ target: target.Id }))
-      const users: UserState[] = yield select(usersSelector)
-      const name = users.find((user) => user.Id === target.UserId)?.Name
-      yield put(sendMessage({ target: 'All', message: { message: '{{name}} is executed.', param: { name: name! } } }))
+      const executedUser = stateToUser(yield select(userSelector, target.UserId))
+      if (!executedUser) {
+        throw new Error('何故かユーザーが見つからない!')
+      }
+      yield put(sendMessage({ target: 'All', message: { message: '{{user.Name}} is executed.', param: { user: executedUser } } }))
       if (yield call(judgeWin)) {
         return
       }
@@ -197,13 +204,13 @@ function * totalVote () {
       const psychics:PlayerState[] = yield select(playersWithPositionSelector, 'Psychic')
       for (const psychic of psychics) {
         if (target.Position === 'Werewolf') {
-          yield put(sendMessage({ target: [psychic.UserId], message: { message: '{{name}} that was executed was a werewolf.', param: { name: name! } } }))
+          yield put(sendMessage({ target: [psychic.UserId], message: { message: '{{user.Name}} that was executed was a werewolf.', param: { user: executedUser } } }))
         } else {
-          yield put(sendMessage({ target: [psychic.UserId], message: { message: '{{name}} that was executed was a citizen.', param: { name: name! } } }))
+          yield put(sendMessage({ target: [psychic.UserId], message: { message: '{{user.Name}} that was executed was a citizen.', param: { user: executedUser } } }))
         }
       }
       const config:Config = yield select(configSelector)
-      yield put(setSchedule({ date: dayjs().add(dayjs.duration(config.nightLength)) }))
+      yield put(setSchedule({ date: dayjs().utc().add(dayjs.duration(config.nightLength)) }))
     }
   } else if (targets && targets.length > 1) {
     yield put(
@@ -211,9 +218,9 @@ function * totalVote () {
     )
     yield put(resetVote())
     const targetUsers: UserState[] = yield all(targets.map(target => select(userWithPlayerIdSelector, target.key)))
-    yield put(sendMessage({ target: 'All', message: { message: 'Final Vote. subject are {{ names }}', param: { names: targetUsers.map(user => user.Name).join(',') } } }))
+    yield put(sendMessage({ target: 'All', message: { message: 'Final Vote. subject are {{ users.Name }}', param: { users: targetUsers } } }))
     const config:Config = yield select(configSelector)
-    yield put(setSchedule({ date: dayjs().add(dayjs.duration(config.finalVoteLength)) }))
+    yield put(setSchedule({ date: dayjs().utc().add(dayjs.duration(config.finalVoteLength)) }))
   }
 }
 
@@ -236,7 +243,7 @@ const timeoutTask = function * () {
     yield put(toVote())
     yield put(sendMessage({ target: 'All', message: { message: 'It\'s vote time.' } }))
     const config:Config = yield select(configSelector)
-    yield put(setSchedule({ date: dayjs().add(dayjs.duration(config.voteLength)) }))
+    yield put(setSchedule({ date: dayjs().utc().add(dayjs.duration(config.voteLength)) }))
   } else if (phase === 'Vote') {
     yield call(totalVote)
   } else if (phase === 'Night') {
@@ -257,14 +264,16 @@ const timeoutTask = function * () {
     const game: GameState = yield select(gameSelector)
     yield put(sendMessage({ target: 'All', message: { message: 'It\'s morning. (Day {{day}})', param: { day: game.Days } } }))
     if (killed !== undefined) {
-      const users: UserState[] = yield select(usersSelector)
-      const name = users.find((user) => user.Id === killed.UserId)?.Name
-      yield put(sendMessage({ target: 'All', message: { message: '{{name}} was found dead in a heap.', param: { name: name! } } }))
+      const killedUser = stateToUser(yield select(userSelector, killed.UserId))
+      if (!killedUser) {
+        throw new Error('何故かユーザーが見つからない!')
+      }
+      yield put(sendMessage({ target: 'All', message: { message: '{{user.Name}} was found dead in a heap.', param: { user: killedUser } } }))
     } else {
       yield put(sendMessage({ target: 'All', message: { message: 'The morning was uneventful.' } }))
     }
     const config:Config = yield select(configSelector)
-    yield put(setSchedule({ date: dayjs().add(dayjs.duration(config.dayLength)) }))
+    yield put(setSchedule({ date: dayjs().utc().add(dayjs.duration(config.dayLength)) }))
   }
 }
 
@@ -364,8 +373,9 @@ export class Game {
       this.store.dispatch(sendMessage({ target: [player.UserId], message: { message: 'You are {{position}}', param: { position: player.Position } } }))
     }
     const config = gameSelector(this.getState()).Config
+    this.store.dispatch(sendMessage({target:'All',message:{message:'The werewolf game start'}}))
     this.store.dispatch(toDay())
-    this.store.dispatch(setSchedule({ date: dayjs().add(dayjs.duration(config.dayLength)) }))
+    this.store.dispatch(setSchedule({ date: dayjs().utc().add(dayjs.duration(config.dayLength)) }))
   }
 
   getPlayerByUserId (user: UserId) {

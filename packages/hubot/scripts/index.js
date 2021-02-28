@@ -43,19 +43,75 @@ var werewolf_1 = require("werewolf");
 var yargs_1 = __importDefault(require("yargs"));
 var node_schedule_1 = require("node-schedule");
 var pino_1 = __importDefault(require("pino"));
+var i18next_1 = __importDefault(require("i18next"));
+// dayjs.extend(duration)
+// dayjs.extend(utc)
+// dayjs.extend(timezone)
 var stateKey = 'state';
 var logger = pino_1.default();
+i18next_1.default.init({
+    lng: 'ja',
+    resources: {
+        ja: {
+            translation: {
+                "Citizen side win!": "市民が勝利しました。",
+                "Couldn't find the player.": 'あなたはゲームに参加していません。',
+                "Couldn't find the target.": '指定されたユーザーはゲームに参加していません。',
+                "Final Vote. subject are {{ users.Name }}": '決選投票を行います。対象は{{userIds}}です。',
+                "It's morning. (Day {{day}})": "朝を迎えました。({day}日目)",
+                "It's night, so I can't run it.": "夜フェーズのため実行できません。",
+                "It's night.": "夜になりました。",
+                "It's not night, so I can't run it.": "夜フェーズではないため実行できません。",
+                "It's not vote time, so I can't run it.": "投票フェーズではないため実行できません。",
+                "It's vote time.": "投票の時がやってきました。",
+                "The morning was uneventful.": "誰も殺されることなく、爽やかな朝となりました。",
+                "The next phase is {{date}}": "次のフェーズは{{date}}に始まります。",
+                "Werewolf side win!": "人狼が勝利しました。",
+                "Worng channel.": "このチャンネルでは実行出来ません。",
+                "You are {{position}}": "あなたは”{{position}}”です。",
+                "{{user.Name}} is executed.": "{{user.Id}}は処刑されました。",
+                "{{user.Name}} that was executed was a citizen.": "処刑された{{user.Id}}は市民でした。",
+                "{{user.Name}} that was executed was a werewolf.": "処刑された{{user.Id}}は人狼でした。",
+                "{{user.Name}} was found dead in a heap.": "{{user.Id}}は無残な死体となって発見されました。",
+                "The werewolf game start": "人狼ゲームを開始します。",
+                "Citizen Side": "市民",
+                "Werewolf Side": "人狼",
+                "Citizen": "市民",
+                FortuneTeller: "占い師",
+                Knight: "騎士",
+                Psychic: "霊媒師",
+                Psycho: "狂人",
+                Sharer: "共有者",
+                Werewolf: "人狼"
+            }
+        }
+    }
+});
+function translate(message) {
+    if (message.message === "You are {{position}}") {
+        return i18next_1.default.t(message.message, { position: i18next_1.default.t(message.param.position) });
+    }
+    if (message.message === 'The next phase is {{date}}') {
+        return i18next_1.default.t(message.message, { date: message.param.date.tz('Asia/Tokyo').format('YYYY年M月D日 HH:mm:ss') });
+    }
+    if (message.message === 'Final Vote. subject are {{ users.Name }}') {
+        return i18next_1.default.t(message.message, { userIds: message.param.users.map(function (user) { return user.Id; }).join(',') });
+    }
+    if (message.param) {
+        return i18next_1.default.t(message.message, message.param);
+    }
+    return i18next_1.default.t(message.message);
+}
 module.exports = function (robot) {
     var channelManager = {
         Send: function (target, message) {
-            robot.messageRoom(target, JSON.stringify(message));
+            robot.messageRoom(target, translate(message));
         },
         Join: function (userIds) { return __awaiter(void 0, void 0, void 0, function () {
             var channel;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        console.log(userIds);
                         if (!(userIds.length === 1)) return [3 /*break*/, 1];
                         return [2 /*return*/, userIds[0]];
                     case 1: return [4 /*yield*/, slack.conversations.open({
@@ -120,7 +176,7 @@ module.exports = function (robot) {
                         })
                             .option('werewolf', { alias: 'w', number: true, description: 'number of werewolf', default: 2 })
                             .option('psycho', { alias: 'o', number: true, description: 'number of psycho', default: 0 })
-                            .option('fortuneTeller', { alias: 'f', number: true, description: 'number of fortune teller', default: 0 })
+                            .option('fortuneTeller', { alias: 't', number: true, description: 'number of fortune teller', default: 0 })
                             .option('knight', { alias: 'k', number: true, description: 'number of knight', default: 0 })
                             .option('psychic', { alias: 'c', number: true, description: 'number of psychic', default: 0 })
                             .option('sharer', { alias: 's', number: true, description: 'number of sharer', default: 0 })
@@ -188,6 +244,7 @@ module.exports = function (robot) {
                         res.reply(invalidUserName.join(', ') + "\u306F\u8A8D\u8B58\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002");
                         return [2 /*return*/];
                     }
+                    res.reply("ゲームの作成を開始しました。");
                     users = userMatchs.map(function (match) { return new werewolf_1.User(match.user.id, match.user.name); });
                     game = werewolf_1.createGame(users, config, channelManager, sheduler, res.message.room);
                     return [4 /*yield*/, game.startGame()];
@@ -213,23 +270,67 @@ module.exports = function (robot) {
         robot.brain.set('state', game.getState());
     });
     robot.respond(/[bB]ite\s(\w+)/, function (res) {
-        var state = robot.brain.get('state');
-        var next = werewolf_1.bite(state, channelManager, sheduler, res.message.room, res.message.user.id, res.match[1]);
-        robot.brain.set('state', next);
+        try {
+            var userName = res.match[1].replace('@', '');
+            var userId = robot.brain.userForName(userName);
+            if (userId === null) {
+                res.reply(userName + "\u306F\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3067\u3057\u305F");
+                return;
+            }
+            var state = robot.brain.get('state');
+            var next = werewolf_1.bite(state, channelManager, sheduler, res.message.room, res.message.user.id, userId.id);
+            robot.brain.set('state', next);
+        }
+        catch (e) {
+            res.reply(JSON.stringify(e));
+        }
     });
     robot.respond(/[fF]ortune\s(\w+)/, function (res) {
-        var state = robot.brain.get('state');
-        var result = werewolf_1.fortune(state, channelManager, sheduler, res.message.room, res.message.user.id, res.match[1]);
-        res.reply(result);
+        try {
+            var userName = res.match[1].replace('@', '');
+            var userId = robot.brain.userForName(userName);
+            if (userId === null) {
+                res.reply(userName + "\u306F\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3067\u3057\u305F");
+                return;
+            }
+            var state = robot.brain.get('state');
+            var result = werewolf_1.fortune(state, channelManager, sheduler, res.message.room, res.message.user.id, userId.id);
+            res.reply("@" + userId + "\u306F" + result + "\u3067\u3059\u3002");
+        }
+        catch (e) {
+            res.reply(JSON.stringify(e));
+        }
     });
     robot.respond(/[eE]scort\s(\w+)/, function (res) {
-        var state = robot.brain.get('state');
-        var next = werewolf_1.escort(state, channelManager, sheduler, res.message.room, res.message.user.id, res.match[1]);
-        robot.brain.set('state', next);
+        try {
+            var userName = res.match[1].replace('@', '');
+            var userId = robot.brain.userForName(userName);
+            if (userId === null) {
+                res.reply(userName + "\u306F\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3067\u3057\u305F");
+                return;
+            }
+            var state = robot.brain.get('state');
+            var next = werewolf_1.escort(state, channelManager, sheduler, res.message.room, res.message.user.id, userId.id);
+            robot.brain.set('state', next);
+        }
+        catch (e) {
+            res.reply(JSON.stringify(e));
+        }
     });
     robot.respond(/[vV]ote\s(\w+)/, function (res) {
-        var state = robot.brain.get('state');
-        var next = werewolf_1.vote(state, channelManager, sheduler, res.message.room, res.message.user.id, res.match[1]);
-        robot.brain.set('state', next);
+        try {
+            var userName = res.match[1].replace('@', '');
+            var userId = robot.brain.userForName(userName);
+            if (userId === null) {
+                res.reply(userName + "\u306F\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3067\u3057\u305F");
+                return;
+            }
+            var state = robot.brain.get('state');
+            var next = werewolf_1.vote(state, channelManager, sheduler, res.message.room, res.message.user.id, userId.id);
+            robot.brain.set('state', next);
+        }
+        catch (e) {
+            res.reply(JSON.stringify(e));
+        }
     });
 };

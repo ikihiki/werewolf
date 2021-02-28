@@ -32,3 +32,10 @@ export class User {
     this.Name = name
   }
 }
+
+export function stateToUser (state?: UserState) {
+  if (state) {
+    return new User(state.Id, state.Name)
+  }
+  return undefined
+}
