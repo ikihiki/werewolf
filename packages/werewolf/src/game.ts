@@ -40,16 +40,18 @@ import { ChannelManager, MessageTarget, Message, channelSline, createChannelWith
 import createSagaMiddleware from 'redux-saga'
 import { all, call, put, select, takeEvery } from 'redux-saga/effects'
 import groupBy from 'lodash/fp/groupBy'
-import { max } from 'lodash'
+import { chunk, max } from 'lodash'
 import { compose } from 'redux'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import { Scheduler } from './scheduler'
 
+import Immutable from 'immutable'
+
 dayjs.extend(duration)
 
 export type GameId = string;
-export type Phase = 'Daytime' | 'Vote' | 'Night' | 'GameOver';
+export type Phase = 'BeforGame'|'Daytime' | 'Vote' | 'Night' | 'GameOver';
 interface GameState {
   Phase: Phase;
   Days: number;
@@ -58,7 +60,7 @@ interface GameState {
 const timeOut = createAction('timeOut')
 const gameSline = createSlice({
   name: 'game',
-  initialState: { Phase: 'Daytime', Days: 1 } as GameState,
+  initialState: { Phase: 'BeforGame', Days: 0 } as GameState,
   reducers: {
     setConfig: (state, action: PayloadAction<Config>) => ({
       ...state,
@@ -283,7 +285,8 @@ const rootTask = function * (messageTransmitter: ChannelManager, scheduler: Sche
 }
 
 export class Game {
-  store: Store<RootState, AnyAction>;
+  store: Store<RootState, AnyAction>
+  #channelManager: ChannelManager
   constructor(
     channelManager: ChannelManager,
     scheduler: Scheduler,
@@ -307,8 +310,8 @@ export class Game {
     config?: Config,
     allChannelId?:ChannelId
   ) {
+    this.#channelManager = channelManager
     const isNewGame = typeof users === 'object'
-
     const reducer = combineReducers<RootState>({
       players: playerSlice.reducer,
       game: gameSline.reducer,
@@ -330,29 +333,39 @@ export class Game {
       this.store.dispatch(setInitialPlayerState({ state: players }))
       this.store.dispatch(setInitialUserState({ state: users.map(user => ({ Id: user.Id, Name: user.Name } as UserState)) }))
       this.store.dispatch(addChannel({ id: allChannelId, target: 'All', users: users.map(user => user.Id) }))
-
-      const werewolfUserIds = players.filter(player => player.Position === 'Werewolf').map(player => player.UserId)
-      const werewolfChannelId = channelManager.Join(werewolfUserIds)
-      this.store.dispatch(addChannel({ id: werewolfChannelId, target: 'Werewolf', users: werewolfUserIds }))
-      this.store.dispatch(sendMessage({ target: 'Werewolf', message: { message: 'You are {{position}}', param: { position: 'Werewolf' } } }))
-
-      const sharerUserIds = players.filter(player => player.Position === 'Sharer').map(player => player.UserId)
-      const shererChannelId = channelManager.Join(sharerUserIds)
-      this.store.dispatch(addChannel({ id: shererChannelId, target: 'Sherer', users: sharerUserIds }))
-      this.store.dispatch(sendMessage({ target: 'Sherer', message: { message: 'You are {{position}}', param: { position: 'Sharer' } } }))
-
-      const otherPlayers = players.filter(player => player.Position !== 'Sharer' && player.Position !== 'Werewolf')
-      for (const player of otherPlayers) {
-        const channelId = channelManager.Join([player.UserId])
-        this.store.dispatch(addChannel({ id: channelId, target: [player.UserId], users: [player.UserId] }))
-        this.store.dispatch(sendMessage({ target: [player.UserId], message: { message: 'You are {{position}}', param: { position: player.Position } } }))
-      }
-      this.store.dispatch(setSchedule({ date: dayjs().add(dayjs.duration(config.dayLength)) }))
     } else {
       for (const key in stateOrPlayer) {
         (this.store.getState() as any)[key] = (stateOrPlayer as any)[key]
       }
     }
+  }
+
+  async startGame ():Promise<void> {
+    const players = playersSelector(this.getState())
+    const werewolfUserIds = players.filter(player => player.Position === 'Werewolf').map(player => player.UserId)
+    const werewolfChannelId = await this.#channelManager.Join(werewolfUserIds)
+    this.store.dispatch(addChannel({ id: werewolfChannelId, target: 'Werewolf', users: werewolfUserIds }))
+    this.store.dispatch(sendMessage({ target: 'Werewolf', message: { message: 'You are {{position}}', param: { position: 'Werewolf' } } }))
+
+    const sharerUserIds = players.filter(player => player.Position === 'Sharer').map(player => player.UserId)
+    if (sharerUserIds.length > 0) {
+      const groups = chunk(sharerUserIds, 2)
+      for (const group of groups) {
+        const shererChannelId = await this.#channelManager.Join(group)
+        this.store.dispatch(addChannel({ id: shererChannelId, target: 'Sherer', users: sharerUserIds }))
+        this.store.dispatch(sendMessage({ target: 'Sherer', message: { message: 'You are {{position}}', param: { position: 'Sharer' } } }))
+      }
+    }
+
+    const otherPlayers = players.filter(player => player.Position !== 'Sharer' && player.Position !== 'Werewolf')
+    for (const player of otherPlayers) {
+      const channelId = await this.#channelManager.Join([player.UserId])
+      this.store.dispatch(addChannel({ id: channelId, target: [player.UserId], users: [player.UserId] }))
+      this.store.dispatch(sendMessage({ target: [player.UserId], message: { message: 'You are {{position}}', param: { position: player.Position } } }))
+    }
+    const config = gameSelector(this.getState()).Config
+    this.store.dispatch(toDay())
+    this.store.dispatch(setSchedule({ date: dayjs().add(dayjs.duration(config.dayLength)) }))
   }
 
   getPlayerByUserId (user: UserId) {

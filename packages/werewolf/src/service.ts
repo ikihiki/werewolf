@@ -5,6 +5,7 @@ import { ChannelId, ChannelManager } from './channel'
 import { Camp, createCitizenStore, createFortuneTellerStore, createKnightStore, createPsychicStore, createPsychoStore, createSharerStore, createWerewolfStore, PlayerState, Position } from './player'
 import { User, UserId } from './user'
 import { ErrorMessage } from './error'
+import pino, { Logger } from 'pino'
 
 function getRandomInt (max: number) {
   return Math.floor(Math.random() * Math.floor(max))

@@ -62,7 +62,7 @@ export type Message =
 export type MessageTarget = 'All'|'Werewolf'|'Sherer' | UserId[]
 export type ChannelId =string
 export interface ChannelManager {
-    Join:(userIds: UserId[])=>ChannelId
+    Join:(userIds: UserId[])=>Promise<ChannelId>
     Send: (id: ChannelId, message: Message) => void
 }
 
