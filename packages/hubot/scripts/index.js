@@ -99,21 +99,45 @@ function translate(message) {
     }
     return i18next_1.default.t(message.message);
 }
+var paser = yargs_1.default
+    .scriptName("hubot")
+    .help()
+    .showHelpOnFail(true)
+    .command('NewGame <users>', 'New game', function (args) {
+    return args
+        .positional('users', {
+        type: 'string',
+        demandOption: true
+    })
+        .option('werewolf', { alias: 'w', number: true, description: 'number of werewolf', default: 2 })
+        .option('psycho', { alias: 'o', number: true, description: 'number of psycho', default: 0 })
+        .option('fortuneTeller', { alias: 't', number: true, description: 'number of fortune teller', default: 0 })
+        .option('knight', { alias: 'k', number: true, description: 'number of knight', default: 0 })
+        .option('psychic', { alias: 'c', number: true, description: 'number of psychic', default: 0 })
+        .option('sharer', { alias: 's', number: true, description: 'number of sharer', default: 0 })
+        .option('day', { alias: 'd', string: true, description: 'day length', default: 'PT6H' })
+        .option('night', { alias: 'n', string: true, description: 'night length', default: 'PT6H' })
+        .option('vote', { alias: 'v', string: true, description: 'vote time length', default: 'PT1H' })
+        .option('finalVote', { alias: 'f', string: true, description: 'final vote time length', default: 'PT10M' });
+})
+    .command('waive', 'ゲームを放棄');
 module.exports = function (robot) {
     var channelManager = {
         Send: function (target, message) {
             robot.messageRoom(target, translate(message));
         },
         Join: function (userIds) { return __awaiter(void 0, void 0, void 0, function () {
-            var channel;
+            var slack, channel;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         if (!(userIds.length === 1)) return [3 /*break*/, 1];
                         return [2 /*return*/, userIds[0]];
-                    case 1: return [4 /*yield*/, slack.conversations.open({
-                            users: userIds.join(',')
-                        })];
+                    case 1:
+                        slack = robot.adapter.client.web;
+                        return [4 /*yield*/, slack.conversations.open({
+                                users: userIds.join(',')
+                            })];
                     case 2:
                         channel = _a.sent();
                         return [2 /*return*/, channel.channel.id];
@@ -140,7 +164,6 @@ module.exports = function (robot) {
         //     res.message.thread_ts = res.message.rawMessage.ts
         //     res.send "スレッドではないときは、スレッドに返事をするよ"
     }
-    var slack = robot.adapter.client.web;
     robot.respond(/debug/, function (res) {
         res.reply(JSON.stringify(robot.brain.get('state'), null, 2));
     });
@@ -150,7 +173,7 @@ module.exports = function (robot) {
         logger.info('%sによってゲームを放棄しました。', res.message.user.get('real_name'));
     });
     robot.respond(/NewGame(.*)/i, function (res) { return __awaiter(void 0, void 0, void 0, function () {
-        var state, paser, argv, userNames, total, config, userMatchs, invalidUserName, users, game;
+        var state, argv, userNames, total, config, userMatchs, invalidUserName, users, game;
         var _a;
         return __generator(this, function (_b) {
             switch (_b.label) {
@@ -163,29 +186,7 @@ module.exports = function (robot) {
                         res.reply('ゲームが進行中です。');
                         return [2 /*return*/];
                     }
-                    paser = yargs_1.default
-                        .scriptName("werewolf")
-                        .command('NewGame <users>', 'New game', function (args) {
-                        return args
-                            .positional('users', {
-                            type: 'string',
-                            demandOption: true
-                        })
-                            .option('werewolf', { alias: 'w', number: true, description: 'number of werewolf', default: 2 })
-                            .option('psycho', { alias: 'o', number: true, description: 'number of psycho', default: 0 })
-                            .option('fortuneTeller', { alias: 't', number: true, description: 'number of fortune teller', default: 0 })
-                            .option('knight', { alias: 'k', number: true, description: 'number of knight', default: 0 })
-                            .option('psychic', { alias: 'c', number: true, description: 'number of psychic', default: 0 })
-                            .option('sharer', { alias: 's', number: true, description: 'number of sharer', default: 0 })
-                            .option('day', { alias: 'd', string: true, description: 'day length', default: 'PT6H' })
-                            .option('night', { alias: 'n', string: true, description: 'night length', default: 'PT6H' })
-                            .option('vote', { alias: 'v', string: true, description: 'vote time length', default: 'PT1H' })
-                            .option('finalVote', { alias: 'f', string: true, description: 'final vote time length', default: 'PT10M' });
-                    })
-                        .help()
-                        .showHelp(function (s) { return res.send(s); })
-                        .showHelpOnFail(true);
-                    argv = paser.parse((_a = res.message.text) === null || _a === void 0 ? void 0 : _a.split(/\s/).slice(2), function (err, argv, output) {
+                    argv = paser.parse((_a = res.message.text) === null || _a === void 0 ? void 0 : _a.split(/\s/).slice(1), function (err, argv, output) {
                         if (output) {
                             res.send(output);
                         }
