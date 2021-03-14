@@ -95,7 +95,7 @@ const paser = yargs
     )
     .command('waive', 'ゲームを放棄')
 
-module.exports = (robot: Robot, channelManagerParam?: ChannelManager, shedulerParam?: Scheduler) => {
+module.exports = (robot: Robot, channelManagerParam?: ChannelManager, shedulerParam?: Scheduler, shuffleFunc?: (users:User[])=>User[]) => {
 
     const channelManager = channelManagerParam || {
         Send: (target, message) => {
@@ -224,7 +224,7 @@ module.exports = (robot: Robot, channelManagerParam?: ChannelManager, shedulerPa
         }
         res.reply("ゲームの作成を開始しました。")
         const users = userMatchs.map(match => new User(match.user!.id, match.user!.name))
-        const game = createGame(users, config, channelManager, sheduler, res.message.room)
+        const game = createGame(users, config, channelManager, sheduler, res.message.room, shuffleFunc)
         await game.startGame()
         robot.brain.set('state', game.getState())
     })

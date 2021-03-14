@@ -55,6 +55,10 @@ describe('hello-world', function () {
         }
       }
     }
+    this.room.user.sayRoom = (userName, room, message)=>{
+      const textMessage = new TextMessage(new User(userName, {room:room}),message)
+      return this.room.user.say(userName,textMessage)
+    }
   });
   afterEach(function () {
     this.room.destroy();
@@ -63,12 +67,84 @@ describe('hello-world', function () {
   context('user says hi to hubot', function () {
     beforeEach(function () {
       return co(function* () {
-        yield this.room.user.say('user1', '@hubot NewGame @user1,@user2,@user3,@user4,@user5,@user6,@user7,@user8');
-        yield new Promise.delay(100);
-        yield this.room.user.say('user1', '@hubot Vote @user2');
-        const message = new TextMessage(new User(1, {room:"1"}),"@hubot Vote @user2")
-        yield this.room.user.say("user1",message)
-        yield new Promise.delay(100);
+        yield this.room.user.say('user1', '@hubot NewGame @user1,@user2,@user3,@user4,@user5,@user6,@user7,@user8,@user9');
+        
+        yield this.room.user.say('user1', '@hubot co taller @user7 citizen');
+        yield this.room.user.say('user3', '@hubot co 占い @user9 白');
+
+        global.timeout();
+
+        yield this.room.user.say('user1', '@hubot vote @user8');
+        yield this.room.user.say('user2', '@hubot vote @user8');
+        yield this.room.user.say('user3', '@hubot vote @user8');
+        yield this.room.user.say('user4', '@hubot vote @user8');
+        yield this.room.user.say('user5', '@hubot vote @user8');
+        yield this.room.user.say('user6', '@hubot vote @user8');
+        yield this.room.user.say('user7', '@hubot vote @user4');
+        yield this.room.user.say('user8', '@hubot vote @user4');
+        yield this.room.user.say('user9', '@hubot vote @user8');
+
+        yield this.room.user.sayRoom('user1','1,2', '@hubot bite @user8');
+        yield this.room.user.sayRoom('user1','1,2', '@hubot bite @user7');
+        yield this.room.user.sayRoom('user2','1,2', '@hubot bite @user9');
+
+        yield this.room.user.sayRoom('user3','3', '@hubot fortune @user6');
+        yield this.room.user.sayRoom('user6','6', '@hubot escort @user3');
+
+        global.timeout();
+
+        yield this.room.user.say('user5', '@hubot co psychic');
+        yield this.room.user.say('user5', '@hubot report @user8 citizen');
+        yield this.room.user.say('user1', '@hubot report @user8 citizen');
+        yield this.room.user.say('user3', '@hubot report @user8 citizen');
+
+        global.timeout();
+
+        yield this.room.user.say('user1', '@hubot vote @user4');
+        yield this.room.user.say('user2', '@hubot vote @user4');
+        yield this.room.user.say('user3', '@hubot vote @user4');
+        yield this.room.user.say('user4', '@hubot vote @user1');
+        yield this.room.user.say('user5', '@hubot vote @user4');
+        yield this.room.user.say('user6', '@hubot vote @user4');
+        yield this.room.user.say('user7', '@hubot vote @user4');
+
+        yield this.room.user.sayRoom('user1','1,2', '@hubot bite @user5');
+
+        yield this.room.user.sayRoom('user3','3', '@hubot fortune @user5');
+        yield this.room.user.sayRoom('user6','6', '@hubot escort @user5');
+
+        global.timeout();
+
+        yield this.room.user.say('user5', '@hubot report @user8 citizen');
+        yield this.room.user.say('user1', '@hubot report @user8 citizen');
+        yield this.room.user.say('user3', '@hubot report @user8 citizen');
+
+        global.timeout();
+
+        yield this.room.user.say('user1', '@hubot vote @user7');
+        yield this.room.user.say('user2', '@hubot vote @user6');
+        yield this.room.user.say('user3', '@hubot vote @user1');
+        yield this.room.user.say('user5', '@hubot vote @user2');
+
+        global.timeout();
+
+        yield this.room.user.say('user1', '@hubot vote @user5');
+
+        yield this.room.user.say('user1', '@hubot vote @user7');
+        yield this.room.user.say('user2', '@hubot vote @user7');
+        yield this.room.user.say('user3', '@hubot vote @user7');
+        yield this.room.user.say('user5', '@hubot vote @user1');
+        yield this.room.user.say('user6', '@hubot vote @user1');
+
+        global.timeout();
+
+        yield this.room.user.sayRoom('user1','1,2', '@hubot bite @user3');
+
+        yield this.room.user.sayRoom('user3','3', '@hubot fortune @user1');
+        yield this.room.user.sayRoom('user6','6', '@hubot escort @user5');
+
+        global.timeout();
+
       }.bind(this));
     });
 

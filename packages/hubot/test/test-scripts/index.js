@@ -10,5 +10,5 @@ module.exports = (robot) => {
         SetSchedule: (date) => {
         }
     }
-    bot(robot, undefined, sheduler)
+    bot(robot, undefined, sheduler, users=> users)
 }

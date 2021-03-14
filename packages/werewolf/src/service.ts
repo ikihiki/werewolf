@@ -20,11 +20,14 @@ export const createGame = (
   config: Config,
   channelManager: ChannelManager,
   scheduler: Scheduler,
-  allChannelId: ChannelId
+  allChannelId: ChannelId,
+  shuffleFunc?: (users:User[])=>User[]
 ): Game => {
   const gameId = Date.now().toString()
   const players: PlayerState[] = []
-  const shuffledUsers = shuffle(users)
+  shuffleFunc = shuffleFunc || shuffle
+  const shuffledUsers = shuffleFunc(users)
+  // werewolf
   for (let i = 0; i < config.numberOfWerewolf; i++) {
     const user = shuffledUsers.pop()
     if (!user) {
@@ -32,6 +35,14 @@ export const createGame = (
     }
     players.push(createWerewolfStore(`${gameId}-${user.Id}`, user))
   }
+  //fortune teller
+  for (let i = 0; i < config.numberOfFortuneTeller; i++) {
+    const user = shuffledUsers.pop()
+    if (!user) {
+      throw new Error('なんか役職のプレイヤーがおらん')
+    } players.push(createFortuneTellerStore(`${gameId}-${user.Id}`, user))
+  }
+  //psycho
   for (let i = 0; i < config.numberOfPsycho; i++) {
     const user = shuffledUsers.pop()
     if (!user) {
@@ -39,19 +50,7 @@ export const createGame = (
     }
     players.push(createPsychoStore(`${gameId}-${user.Id}`, user))
   }
-  for (let i = 0; i < config.numberOfFortuneTeller; i++) {
-    const user = shuffledUsers.pop()
-    if (!user) {
-      throw new Error('なんか役職のプレイヤーがおらん')
-    } players.push(createFortuneTellerStore(`${gameId}-${user.Id}`, user))
-  }
-  for (let i = 0; i < config.numberOfKnight; i++) {
-    const user = shuffledUsers.pop()
-    if (!user) {
-      throw new Error('なんか役職のプレイヤーがおらん')
-    }
-    players.push(createKnightStore(`${gameId}-${user.Id}`, user))
-  }
+  //psychic
   for (let i = 0; i < config.numberOfPsychic; i++) {
     const user = shuffledUsers.pop()
     if (!user) {
@@ -59,6 +58,15 @@ export const createGame = (
     }
     players.push(createPsychicStore(`${gameId}-${user.Id}`, user))
   }
+  //knight
+  for (let i = 0; i < config.numberOfKnight; i++) {
+    const user = shuffledUsers.pop()
+    if (!user) {
+      throw new Error('なんか役職のプレイヤーがおらん')
+    }
+    players.push(createKnightStore(`${gameId}-${user.Id}`, user))
+  }
+  //sharer
   for (let i = 0; i < config.numberOfSharer; i++) {
     const user = shuffledUsers.pop()
     if (!user) {
@@ -66,6 +74,7 @@ export const createGame = (
     }
     players.push(createSharerStore(`${gameId}-${user.Id}`, user))
   }
+  //citizen
   for (const user of shuffledUsers) {
     players.push(createCitizenStore(`${gameId}-${user.Id}`, user))
   }
