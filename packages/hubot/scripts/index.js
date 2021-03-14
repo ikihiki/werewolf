@@ -100,7 +100,7 @@ function translate(message) {
     return i18next_1.default.t(message.message);
 }
 var paser = yargs_1.default
-    .scriptName("hubot")
+    .scriptName("werewolf")
     .help()
     .showHelpOnFail(true)
     .command('NewGame <users>', 'New game', function (args) {
@@ -121,8 +121,8 @@ var paser = yargs_1.default
         .option('finalVote', { alias: 'f', string: true, description: 'final vote time length', default: 'PT10M' });
 })
     .command('waive', 'ゲームを放棄');
-module.exports = function (robot) {
-    var channelManager = {
+module.exports = function (robot, channelManagerParam, shedulerParam) {
+    var channelManager = channelManagerParam || {
         Send: function (target, message) {
             robot.messageRoom(target, translate(message));
         },
@@ -150,9 +150,13 @@ module.exports = function (robot) {
         var game = werewolf_1.storeGame(state, channelManager, sheduler);
         game.TimeOut();
     };
-    var sheduler = {
+    var schedule;
+    var sheduler = shedulerParam || {
         SetSchedule: function (date) {
-            node_schedule_1.scheduleJob('job', date.toDate(), function (fire) {
+            if (schedule) {
+                schedule.cancel();
+            }
+            schedule = node_schedule_1.scheduleJob('job', date.toDate(), function (fire) {
                 fireSchedule();
             });
         }
@@ -280,7 +284,7 @@ module.exports = function (robot) {
             robot.brain.set('state', next);
         }
         catch (e) {
-            res.reply(JSON.stringify(e));
+            res.reply(translate(e));
         }
     });
     robot.respond(/[fF]ortune\s(\w+)/, function (res) {
@@ -296,7 +300,7 @@ module.exports = function (robot) {
             res.reply("@" + userId + "\u306F" + result + "\u3067\u3059\u3002");
         }
         catch (e) {
-            res.reply(JSON.stringify(e));
+            res.reply(translate(e));
         }
     });
     robot.respond(/[eE]scort\s(\w+)/, function (res) {
@@ -312,10 +316,10 @@ module.exports = function (robot) {
             robot.brain.set('state', next);
         }
         catch (e) {
-            res.reply(JSON.stringify(e));
+            res.reply(translate(e));
         }
     });
-    robot.respond(/[vV]ote\s(\w+)/, function (res) {
+    robot.respond(/[vV]ote\s(.+)/, function (res) {
         try {
             var userName = res.match[1].replace('@', '');
             var userId = robot.brain.userForName(userName);
@@ -328,7 +332,7 @@ module.exports = function (robot) {
             robot.brain.set('state', next);
         }
         catch (e) {
-            res.reply(JSON.stringify(e));
+            res.reply(translate(e));
         }
     });
 };
