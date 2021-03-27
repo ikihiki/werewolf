@@ -1,0 +1,65 @@
+{
+  "name": "command-parser",
+  "version": "0.0.0",
+  "description": "> TODO: description",
+  "author": "伊吹英晃 <ibuki-90@hotmail.co.jp>",
+  "homepage": "https://github.com/yantene/werewolf/tree/master/packages/command-parser#readme",
+  "license": "ISC",
+  "main": "lib/command-parser.js",
+  "directories": {
+    "lib": "lib",
+    "test": "__tests__"
+  },
+  "files": [
+    "lib"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ikihiki/werewolf.git"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch":"jest --watch"
+  },
+  "bugs": {
+    "url": "https://github.com/ikihiki/werewolf/issues"
+  },
+  "dependencies": {
+    "werewolf": "^1.0.0",
+    "yargs": "^16.2.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^26.0.22",
+    "@types/yargs": "^16.0.1",
+    "@typescript-eslint/eslint-plugin": "^4.15.1",
+    "@typescript-eslint/parser": "^4.15.1",
+    "eslint": "^7.20.0",
+    "eslint-config-standard": "^16.0.2",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-jest": "^24.1.5",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.3.1",
+    "eslint-plugin-standard": "^5.0.0",
+    "jest": "^26.6.3",
+    "ts-jest": "^26.5.4",
+    "typescript": "^4.2.3"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "ts",
+      "js"
+    ],
+    "transform": {
+      "^.+\\.ts$": "ts-jest"
+    },
+    "globals": {
+      "ts-jest": {
+        "tsConfig": "tsconfig.json"
+      }
+    },
+    "testMatch": [
+      "**/*.spec.ts"
+    ]
+  }
+}

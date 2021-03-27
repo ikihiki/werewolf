@@ -105,7 +105,7 @@ export const bite = (state: RootState, channelManager: ChannelManager, scheduler
   const game = storeGame(state, channelManager, scheduler)
   const channel = game.getChannel(channelId)
   if (channel?.Target === 'Werewolf') {
-    throw new Error('Worng channel.'as ErrorMessage)
+    throw new Error('Wrong channel.'as ErrorMessage)
   }
   if (!game.isNight()) {
     throw new Error("It's not night, so I can't run it."as ErrorMessage)
@@ -126,7 +126,7 @@ export const fortune = (state: RootState, channelManager: ChannelManager, schedu
   const game = storeGame(state, channelManager, scheduler)
   const channel = game.getChannel(channelId)
   if (channel?.isDm(user) !== true) {
-    throw new Error('Worng channel.'as ErrorMessage)
+    throw new Error('Wrong channel.'as ErrorMessage)
   }
   if (!game.isNight()) {
     throw new Error("It's not night, so I can't run it."as ErrorMessage)
@@ -146,7 +146,7 @@ export const escort = (state: RootState, channelManager: ChannelManager, schedul
   const game = storeGame(state, channelManager, scheduler)
   const channel = game.getChannel(channelId)
   if (channel?.isDm(user) !== true) {
-    throw new Error('Worng channel.'as ErrorMessage)
+    throw new Error('Wrong channel.'as ErrorMessage)
   }
   if (!game.isNight()) {
     throw new Error("It's not night, so I can't run it."as ErrorMessage)
@@ -167,7 +167,7 @@ export const comingOut = (state: RootState, channelManager: ChannelManager, sche
   const game = storeGame(state, channelManager, scheduler)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'All') {
-    throw new Error('Worng channel.'as ErrorMessage)
+    throw new Error('Wrong channel.'as ErrorMessage)
   }
   if (game.isNight()) {
     throw new Error("It's night, so I can't run it."as ErrorMessage)
@@ -176,7 +176,7 @@ export const comingOut = (state: RootState, channelManager: ChannelManager, sche
   if (player === undefined) {
     throw new Error("Couldn't find the player."as ErrorMessage)
   }
-  player.CamingOut(position)
+  player.ComingOut(position)
   if (targetUser !== undefined && camp !== undefined) {
     const targetPlayer = game.getPlayerByUserId(targetUser)
     if (targetPlayer === undefined) {
@@ -191,7 +191,7 @@ export const report = (state: RootState, channelManager: ChannelManager, schedul
   const game = storeGame(state, channelManager, scheduler)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'All') {
-    throw new Error('Worng channel.'as ErrorMessage)
+    throw new Error('Wrong channel.'as ErrorMessage)
   }
   if (game.isNight()) {
     throw new Error("It's night, so I can't run it."as ErrorMessage)
@@ -212,7 +212,7 @@ export const vote = (state: RootState, channelManager: ChannelManager, scheduler
   const game = storeGame(state, channelManager, scheduler)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'All') {
-    throw new Error('Worng channel.'as ErrorMessage)
+    throw new Error('Wrong channel.'as ErrorMessage)
   }
   if (!game.isVoteTime()) {
     throw new Error("It's not vote time, so I can't run it."as ErrorMessage)

@@ -150,7 +150,7 @@ export class Player {
     this.#dispach(vote({ player: this.Id, target: target.Id }))
   }
 
-  CamingOut (position: Position): void {
+  ComingOut (position: Position): void {
     if (!this.IsSurvival) {
       throw new Error('You are already dead')
     }

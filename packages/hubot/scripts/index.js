@@ -64,7 +64,7 @@ i18next_1.default.init({
                 "The morning was uneventful.": "誰も殺されることなく、爽やかな朝となりました。",
                 "The next phase is {{date}}": "次のフェーズは{{date}}に始まります。",
                 "Werewolf side win!": "人狼が勝利しました。",
-                "Worng channel.": "このチャンネルでは実行出来ません。",
+                "Wrong channel.": "このチャンネルでは実行出来ません。",
                 "You are {{position}}": "あなたは”{{position}}”です。",
                 "{{user.Name}} is executed.": "{{user.Id}}は処刑されました。",
                 "{{user.Name}} that was executed was a citizen.": "処刑された{{user.Id}}は市民でした。",

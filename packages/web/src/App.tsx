@@ -59,7 +59,7 @@ const ComingOutControl = (prop: { player?: PlayerState, game: Game }) => {
       </Select>
       <Button onClick={() => {
         if (prop.player != null && comingOutSelect !== undefined) {
-          prop.game.getPlayerByUserId(prop.player.UserId)?.CamingOut(comingOutSelect)
+          prop.game.getPlayerByUserId(prop.player.UserId)?.ComingOut(comingOutSelect)
         }
       }}>ComingOut</Button>
     </div>

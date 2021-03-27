@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
-import { ChannelManager, createGame, Scheduler } from 'werewolf'
+import { ChannelManager, createGame, Scheduler, some } from 'werewolf'
 import App from './App';
 import { Provider } from 'react-redux';
 import * as serviceWorker from './serviceWorker';
@@ -42,7 +42,7 @@ const channelManager = {
       message: `users are ${JSON.stringify(userIds)}`,
       timeout: 50000
     })
-    return JSON.stringify(userIds)
+    return Promise.resolve( JSON.stringify(userIds))
   }
 } as ChannelManager;
 
@@ -56,6 +56,8 @@ const scheduler: Scheduler = {
 
 
 const game = createGame(users, config, channelManager, scheduler, 'All')
+
+console.log(some());
 
 ReactDOM.render(
   <React.StrictMode>

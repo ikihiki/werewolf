@@ -30,8 +30,8 @@
     "url": "https://github.com/yantene/werewolf/issues"
   },
   "homepage": "https://github.com/yantene/werewolf#readme",
-  "dependencies": {},
   "devDependencies": {
+    "@types/jest": "^26.0.22",
     "lerna": "^3.22.1"
   }
 }
