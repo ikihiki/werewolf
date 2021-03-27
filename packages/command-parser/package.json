@@ -20,12 +20,14 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
-    "test:watch":"jest --watch"
+    "test:watch": "jest --watch"
   },
   "bugs": {
     "url": "https://github.com/ikihiki/werewolf/issues"
   },
   "dependencies": {
+    "dayjs": "^1.10.4",
+    "i18next": "^20.1.0",
     "werewolf": "^1.0.0",
     "yargs": "^16.2.0"
   },
