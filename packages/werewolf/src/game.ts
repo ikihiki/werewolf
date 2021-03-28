@@ -58,6 +58,7 @@ dayjs.extend(timezone)
 export type GameId = string;
 export type Phase = 'BeforGame'|'Daytime' | 'Vote' | 'Night' | 'GameOver';
 interface GameState {
+  Id: GameId;
   Phase: Phase;
   Days: number;
   Config: Config;
@@ -67,6 +68,10 @@ const gameSline = createSlice({
   name: 'game',
   initialState: { Phase: 'BeforGame', Days: 0 } as GameState,
   reducers: {
+    setGameId: (state, action:PayloadAction<GameId>)=>({
+      ...state,
+      Id:action.payload
+    }),
     setConfig: (state, action: PayloadAction<Config>) => ({
       ...state,
       Config: action.payload
@@ -82,6 +87,7 @@ const gameSline = createSlice({
   }
 })
 export const {
+  setGameId,
   setConfig,
   toDay,
   toNight,
@@ -302,7 +308,8 @@ export class Game {
     players: PlayerState[],
     users: User[],
     config: Config,
-    allChannelId:ChannelId
+    allChannelId:ChannelId,
+    gameId: GameId
   );
 
   constructor(
@@ -317,7 +324,8 @@ export class Game {
     stateOrPlayer: PlayerState[] | RootState,
     users?: User[],
     config?: Config,
-    allChannelId?:ChannelId
+    allChannelId?:ChannelId,
+    gameId?: GameId
   ) {
     this.#channelManager = channelManager
     const isNewGame = typeof users === 'object'
@@ -338,6 +346,8 @@ export class Game {
 
     if (users && config && allChannelId) {
       const players = stateOrPlayer as PlayerState[]
+      gameId = gameId || Date.now().toString()
+      this.store.dispatch(setGameId(gameId))
       this.store.dispatch(setConfig(config))
       this.store.dispatch(setInitialPlayerState({ state: players }))
       this.store.dispatch(setInitialUserState({ state: users.map(user => ({ Id: user.Id, Name: user.Name } as UserState)) }))

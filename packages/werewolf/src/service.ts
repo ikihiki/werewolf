@@ -1,11 +1,13 @@
 import { Config } from './config'
-import { Game, RootState } from './game'
+import { Game, GameId, RootState } from './game'
 import { Scheduler } from './scheduler'
 import { ChannelId, ChannelManager } from './channel'
 import { Camp, createCitizenStore, createFortuneTellerStore, createKnightStore, createPsychicStore, createPsychoStore, createSharerStore, createWerewolfStore, PlayerState, Position } from './player'
 import { User, UserId } from './user'
 import { ErrorMessage } from './error'
 import pino, { Logger } from 'pino'
+
+export type ShuffleFunc=(users:User[])=>User[]
 
 function shuffle<T> ([...array]:Array<T>):Array<T> {
   for (let i = array.length - 1; i >= 0; i--) {
@@ -21,9 +23,10 @@ export const createGame = (
   channelManager: ChannelManager,
   scheduler: Scheduler,
   allChannelId: ChannelId,
-  shuffleFunc?: (users:User[])=>User[]
+  shuffleFunc?: ShuffleFunc,
+  gameId?: GameId
 ): Game => {
-  const gameId = Date.now().toString()
+  gameId = gameId || Date.now().toString()
   const players: PlayerState[] = []
   shuffleFunc = shuffleFunc || shuffle
   const shuffledUsers = shuffleFunc(users)
@@ -85,7 +88,8 @@ export const createGame = (
     players,
     users,
     config,
-    allChannelId
+    allChannelId,
+    gameId
   )
 }
 

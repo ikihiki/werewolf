@@ -4,7 +4,5 @@ export * from './error'
 export * from './channel'
 export * from './scheduler'
 export { User, UserId } from './user'
-export { RootState } from './game'
+export { RootState, GameId } from './game'
 export { Camp, Position } from './player'
-
-export {some}from './parser'

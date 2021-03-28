@@ -1,6 +1,6 @@
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
-import { bite, Camp, ChannelId, ChannelManager, Config, createGame, ErrorMessage, escort, fortune, Message, MessageStrings, Position, RootState, Scheduler, storeGame, User, UserId, vote } from 'werewolf'
+import { bite, Camp, ChannelId, ChannelManager, comingOut, Config, createGame, ErrorMessage, escort, fortune, GameId, Message, MessageStrings, Position, report, RootState, Scheduler, ShuffleFunc, User, UserId, vote } from 'werewolf'
 import i18next from 'i18next'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
@@ -48,7 +48,7 @@ i18next.init({
   }
 })
 
-function translate (message: Message) {
+export function translate (message: Message) {
   if (message.message === 'You are {{position}}') {
     return i18next.t(message.message, { position: i18next.t(message.param.position) })
   }
@@ -64,10 +64,10 @@ function translate (message: Message) {
   return i18next.t(message.message)
 }
 
-interface ParserContext {
-  resolveUserId(userName: string): UserId;
+export interface ParserContext {
+  resolveUserId(userName?: string): UserId | undefined;
   reply(text: string): void;
-  loadState(): RootState;
+  loadState(): RootState | undefined;
   saveState(state: RootState): void;
   removeState():void;
   scheduler: Scheduler;
@@ -76,8 +76,8 @@ interface ParserContext {
   messageUserName: string;
   messageRoom: ChannelId;
 }
-export function parse (value: string, context: ParserContext): void {
-  const parser = yargs(hideBin(value.split(/\s/)))
+export async function parse (value: string, context: ParserContext, shuffleFunc?: ShuffleFunc, gameId?: GameId): Promise<void> {
+  const parser = yargs
     .scriptName('werewolf')
     .help()
     .showHelpOnFail(true)
@@ -156,91 +156,211 @@ export function parse (value: string, context: ParserContext): void {
         }
         context.reply('ゲームの作成を開始しました。')
         const users = userMatchs.map(match => new User(match.user!, match.name))
-        const game = createGame(users, config, context.channelManager, context.scheduler, context.messageRoom)
+        const game = createGame(users, config, context.channelManager, context.scheduler, context.messageRoom, shuffleFunc, gameId)
         await game.startGame()
         context.saveState(game.getState())
       }
     )
-    .command('waive', 'ゲームを放棄', args => {}, argv => {
+    .command('waive', 'ゲームを放棄', () => { /* empty */ }, async () => {
       context.removeState()
       context.reply('ゲームを放棄しました。')
-      logger.info('%sによってゲームを放棄しました。', res.message.user.get('real_name'))
+      // logger.info('%sによってゲームを放棄しました。', res.message.user.get('real_name'))
     })
-    .command('co', 'co', args => {}, argv => {
-      console.log(res.match)
-      const state = context.loadState()
-      const game = storeGame(state, context.channelManager, context.scheduler)
-      const player = game.getPlayerByUserId(context.messageUserId)
-      context.saveState(game.getState())
-    })
-    .command('report', 'co', args => {}, argv => {
-      const state = context.loadState()
-      const game = storeGame(state, context.channelManager, context.scheduler)
-      const player = game.getPlayerByUserId(context.messageUserId)
-      context.saveState(game.getState())
-    })
-    .command('bite', 'co', args => {}, argv => {
-      try {
-        const userName = res.match[1].replace('@', '')
-        const userId = context.resolveUserId(userName)
-        if (userId === null) {
-          res.reply(`${userName}は見つかりませんでした`)
+    .command('co <position> [target] [camp]', 'カミングアウト',
+      args =>
+        args
+          .positional('position', {
+            choices: ['占い師', '霊媒師'],
+            description: '宣言する自身の役職(占い師か霊媒師)'
+          })
+          .positional('target', {
+            type: 'string',
+            description: '結果を宣言する相手'
+          })
+          .positional('camp', {
+            description: '相手の陣営',
+            choices: ['人狼', '市民']
+          }),
+      async argv => {
+        let pos:Position | undefined
+        switch (argv.position) {
+          case '占い師':
+            pos = 'FortuneTeller'
+            break
+          case '霊媒師':
+            pos = 'Psychic'
+            break
+        }
+        if (pos === undefined) {
+          return
+        }
+
+        const target = context.resolveUserId(argv.target)
+        let camp: Camp | undefined
+        switch (argv.camp) {
+          case '人狼':
+            camp = 'Werewolf Side'
+            break
+          case '市民':
+            camp = 'Citizen Side'
+            break
+        }
+        const state = context.loadState()
+        if (state === undefined) {
+          context.reply('ゲームが実行されていません')
+          return
+        }
+        const next = comingOut(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, pos, target, camp)
+        context.saveState(next)
+      })
+    .command('report <target> <camp>', '報告',
+      args =>
+        args
+          .positional('target', {
+            type: 'string',
+            description: '結果を宣言する相手'
+          })
+          .positional('camp', {
+            description: '相手の陣営',
+            choices: ['人狼', '市民']
+          }),
+      async argv => {
+        const target = context.resolveUserId(argv.target)
+        let camp: Camp | undefined
+        switch (argv.camp) {
+          case '人狼':
+            camp = 'Werewolf Side'
+            break
+          case '市民':
+            camp = 'Citizen Side'
+            break
+        }
+        if (target === undefined) {
+          return
+        }
+        if (camp === undefined) {
           return
         }
         const state = context.loadState()
-        const next = bite(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, userId.id)
+        if (state === undefined) {
+          context.reply('ゲームが実行されていません')
+          return
+        }
+        const next = report(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, target, camp)
+        context.saveState(next)
+      })
+    .command('bite', '咬む',
+      args =>
+        args
+          .positional('target', {
+            type: 'string',
+            description: '咬む相手'
+          }),
+      async argv => {
+        try {
+          const userId = context.resolveUserId(argv.target)
+          if (userId === undefined) {
+            context.reply(`${argv.target}は見つかりませんでした`)
+            return
+          }
+          const state = context.loadState()
+          if (state === undefined) {
+            context.reply('ゲームが実行されていません')
+            return
+          }
+          const next = bite(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, userId)
+          context.saveState(next)
+        } catch (e) {
+          context.reply(translate(e))
+        }
+      })
+    .command('fortune', '占う',
+      args =>
+        args
+          .positional('target', {
+            type: 'string',
+            description: '占う相手'
+          }),
+      async argv => {
+        try {
+          const userId = context.resolveUserId(argv.target)
+          if (userId === undefined) {
+            context.reply(`${argv.target}は見つかりませんでした`)
+            return
+          }
+          const state = context.loadState()
+          if (state === undefined) {
+            context.reply('ゲームが実行されていません')
+            return
+          }
+          const result = fortune(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, userId)
+          context.reply(`@${userId}は${result}です。`)
+        } catch (e) {
+          context.reply(translate(e))
+        }
+      })
+    .command('escort', '護衛する', args =>
+      args
+        .positional('target', {
+          type: 'string',
+          description: '護衛する相手'
+        }),
+    async argv => {
+      try {
+        const userId = context.resolveUserId(argv.target)
+        if (userId === undefined) {
+          context.reply(`${argv.target}は見つかりませんでした`)
+          return
+        }
+        const state = context.loadState()
+        if (state === undefined) {
+          context.reply('ゲームが実行されていません')
+          return
+        }
+        const next = escort(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, userId)
         context.saveState(next)
       } catch (e) {
         context.reply(translate(e))
       }
     })
-    .command('fortune', 'co', args => {}, argv => {
+    .command('vote', '投票', args =>
+      args
+        .positional('target', {
+          type: 'string',
+          description: '投票する相手'
+        }),
+    async argv => {
       try {
-        const userName = res.match[1].replace('@', '')
-        const userId = context.resolveUserId(userName)
-        if (userId === null) {
-          res.reply(`${userName}は見つかりませんでした`)
+        const userId = context.resolveUserId(argv.target)
+        if (userId === undefined) {
+          context.reply(`${argv.target}は見つかりませんでした`)
           return
         }
         const state = context.loadState()
-        const result = fortune(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, userId.id)
-        res.reply(`@${userId}は${result}です。`)
-      } catch (e) {
-        context.reply(translate(e))
-      }
-    })
-    .command('escort', 'co', args => {}, argv => {
-      try {
-        const userName = res.match[1].replace('@', '')
-        const userId = context.resolveUserId(userName)
-        if (userId === null) {
-          res.reply(`${userName}は見つかりませんでした`)
+        if (state === undefined) {
+          context.reply('ゲームが実行されていません')
           return
         }
-        const state = context.loadState()
-        const next = escort(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, userId.id)
-        context.saveState(next)
-      } catch (e) {
-        context.reply(translate(e))
-      }
-    })
-    .command('vote', 'co', args => {}, argv => {
-      try {
-        const userName = res.match[1].replace('@', '')
-        const userId = context.resolveUserId(userName)
-        if (userId === null) {
-          res.reply(`${userName}は見つかりませんでした`)
-          return
-        }
-        const state = context.loadState()
-        const next = vote(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, userId.id)
+        const next = vote(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, userId)
         context.saveState(next)
       } catch (e) {
         context.reply(translate(e))
       }
     })
 
-  const args = parser.parse()
+  const args = await new Promise(
+    (resolve, reject) =>
+      parser
+        .onFinishCommand(res => resolve(res))
+        .parse(value.split(/\s/).splice(1),
+          (_err: Error | undefined, _argv: any, output: string) => {
+            if (output) {
+              context.reply(output)
+              resolve(undefined)
+            }
+          }
+        )
+  )
 
   console.log(args)
 }
