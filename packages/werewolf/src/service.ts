@@ -108,7 +108,7 @@ export const storeGame = (
 export const bite = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId) => {
   const game = storeGame(state, channelManager, scheduler)
   const channel = game.getChannel(channelId)
-  if (channel?.Target === 'Werewolf') {
+  if (channel?.Target !== 'Werewolf') {
     throw new Error('Wrong channel.'as ErrorMessage)
   }
   if (!game.isNight()) {

@@ -81,6 +81,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
     .scriptName('werewolf')
     .help()
     .showHelpOnFail(true)
+    .exitProcess(false)
     .command('NewGame <users...>', 'New game',
       args =>
         args
@@ -195,7 +196,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           return
         }
 
-        const target = context.resolveUserId(argv.target)
+        const target = context.resolveUserId(argv.target?.replace('@', ''))
         let camp: Camp | undefined
         switch (argv.camp) {
           case '人狼':
@@ -210,8 +211,12 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           context.reply('ゲームが実行されていません')
           return
         }
-        const next = comingOut(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, pos, target, camp)
-        context.saveState(next)
+        try {
+          const next = comingOut(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, pos, target, camp)
+          context.saveState(next)
+        } catch (e) {
+          console.log(e)
+        }
       })
     .command('report <target> <camp>', '報告',
       args =>
@@ -225,7 +230,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
             choices: ['人狼', '市民']
           }),
       async argv => {
-        const target = context.resolveUserId(argv.target)
+        const target = context.resolveUserId(argv.target?.replace('@', ''))
         let camp: Camp | undefined
         switch (argv.camp) {
           case '人狼':
@@ -249,7 +254,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
         const next = report(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, target, camp)
         context.saveState(next)
       })
-    .command('bite', '咬む',
+    .command('bite <target>', '咬む',
       args =>
         args
           .positional('target', {
@@ -258,7 +263,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           }),
       async argv => {
         try {
-          const userId = context.resolveUserId(argv.target)
+          const userId = context.resolveUserId(argv.target?.replace('@', ''))
           if (userId === undefined) {
             context.reply(`${argv.target}は見つかりませんでした`)
             return
@@ -274,7 +279,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           context.reply(translate(e))
         }
       })
-    .command('fortune', '占う',
+    .command('fortune <target>', '占う',
       args =>
         args
           .positional('target', {
@@ -283,7 +288,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           }),
       async argv => {
         try {
-          const userId = context.resolveUserId(argv.target)
+          const userId = context.resolveUserId(argv.target?.replace('@', ''))
           if (userId === undefined) {
             context.reply(`${argv.target}は見つかりませんでした`)
             return
@@ -299,7 +304,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           context.reply(translate(e))
         }
       })
-    .command('escort', '護衛する', args =>
+    .command('escort <target>', '護衛する', args =>
       args
         .positional('target', {
           type: 'string',
@@ -307,7 +312,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
         }),
     async argv => {
       try {
-        const userId = context.resolveUserId(argv.target)
+        const userId = context.resolveUserId(argv.target?.replace('@', ''))
         if (userId === undefined) {
           context.reply(`${argv.target}は見つかりませんでした`)
           return
@@ -323,7 +328,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
         context.reply(translate(e))
       }
     })
-    .command('vote', '投票', args =>
+    .command('vote <target>', '投票', args =>
       args
         .positional('target', {
           type: 'string',
@@ -331,7 +336,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
         }),
     async argv => {
       try {
-        const userId = context.resolveUserId(argv.target)
+        const userId = context.resolveUserId(argv.target?.replace('@', ''))
         if (userId === undefined) {
           context.reply(`${argv.target}は見つかりませんでした`)
           return
@@ -348,15 +353,18 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
       }
     })
 
-  const args = await new Promise(
+  const args = await new Promise<void>(
     (resolve, reject) =>
       parser
+        .fail((_msg, _err, _val) => resolve())
         .onFinishCommand(res => resolve(res))
         .parse(value.split(/\s/).splice(1),
-          (_err: Error | undefined, _argv: any, output: string) => {
+          (err: Error | undefined, _argv: any, output: string) => {
             if (output) {
               context.reply(output)
-              resolve(undefined)
+            }
+            if (err) {
+              context.reply(JSON.stringify(err))
             }
           }
         )
