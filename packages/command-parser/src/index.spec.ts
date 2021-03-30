@@ -1,47 +1,49 @@
 import dayjs from 'dayjs'
-import { RootState, Scheduler, ChannelManager, Message, ChannelsState, MessageTarget, ChannelState, Position } from 'werewolf'
+import { RootState, Scheduler, ChannelManager, Message, ChannelsState, MessageTarget, ChannelState, Position, timeout } from 'werewolf'
 import { parse, ParserContext, translate } from './index'
 import * as Immutable from 'immutable'
 import { Report } from 'werewolf/dest/player'
+import { string } from 'yargs'
 
 class TestScheduler implements Scheduler {
-  SetSchedule(date: dayjs.Dayjs) {
-
+  schedules:dayjs.Dayjs[]= [];
+  SetSchedule (date: dayjs.Dayjs) {
+    this.schedules.push(date)
   }
 }
 
 class TestChannelManager implements ChannelManager {
   channels = new Map<string, string[]>([['main', []]])
 
-  Join(userIds: string[]) {
+  Join (userIds: string[]) {
     const channelId = userIds.join(',')
     this.channels.set(channelId, [])
     return Promise.resolve(channelId)
   }
 
-  Send(id: string, message: Message) {
+  Send (id: string, message: Message) {
     this.channels.get(id)?.push(translate(message))
   }
 }
 
 class TestParserContext implements ParserContext {
-  resolveUserId(userName: string): string | undefined {
+  resolveUserId (userName: string): string | undefined {
     return this.users.get(userName)
   }
 
-  reply(text: string): void {
+  reply (text: string): void {
     this.replys.push(text)
   }
 
-  loadState(): RootState | undefined {
+  loadState (): RootState | undefined {
     return this.state
   }
 
-  saveState(state: RootState): void {
+  saveState (state: RootState): void {
     this.state = state
   }
 
-  removeState(): void {
+  removeState (): void {
     throw new Error('Method not implemented.')
   }
 
@@ -66,7 +68,7 @@ class TestParserContext implements ParserContext {
   replys: string[] = []
   state?: RootState;
 
-  constructor(userId: string, userName: string, room: string, state?: RootState) {
+  constructor (userId: string, userName: string, room: string, state?: RootState) {
     this.messageUserId = userId
     this.messageUserName = userName
     this.messageRoom = room
@@ -354,4 +356,96 @@ describe('parse', () => {
     expect(context.replys).toStrictEqual(['@9はWerewolf Sideです。'])
   })
 
+  it('senario', async () => {
+    const context = new TestParserContext('1', 'user1', 'main')
+    const runParse = async (userName:string, room:string, text:string) => {
+      const id = context.users.get(userName)
+      if (id === undefined) {
+        throw new Error('not found user')
+      }
+      context.messageRoom = room
+      context.messageUserId = id
+      context.messageUserName = userName
+      await parse(text, context)
+    }
+    await parse('@werewolf NewGame @user1 @user2 @user3 @user4 @user5 @user6 @user7 @user8 @user9 -o 1 -t 1 -k 1 -c 1 -s 2', context, users => users.reverse(), 'test_game')
+
+    await runParse('user1', 'main', '@werewolf co taller @user7 citizen')
+    await runParse('user3', 'main', '@werewolf co 占い @user9 白')
+
+    context.saveState(timeout(context.state!, context.channelManager, context.scheduler))
+
+    await runParse('user1', 'main', '@werewolf vote @user8')
+    await runParse('user2', 'main', '@werewolf vote @user8')
+    await runParse('user3', 'main', '@werewolf vote @user8')
+    await runParse('user4', 'main', '@werewolf vote @user8')
+    await runParse('user5', 'main', '@werewolf vote @user8')
+    await runParse('user6', 'main', '@werewolf vote @user8')
+    await runParse('user7', 'main', '@werewolf vote @user4')
+    await runParse('user8', 'main', '@werewolf vote @user4')
+    await runParse('user9', 'main', '@werewolf vote @user8')
+
+    await runParse('user1', '1,2', '@werewolf bite @user8')
+    await runParse('user1', '1,2', '@werewolf bite @user7')
+    await runParse('user2', '1,2', '@werewolf bite @user9')
+
+    await runParse('user3', '3', '@werewolf fortune @user6')
+    await runParse('user6', '6', '@werewolf escort @user3')
+
+    context.saveState(timeout(context.state!, context.channelManager, context.scheduler))
+
+    await runParse('user5', 'main', '@werewolf co psychic')
+    await runParse('user5', 'main', '@werewolf report @user8 citizen')
+    await runParse('user1', 'main', '@werewolf report @user8 citizen')
+    await runParse('user3', 'main', '@werewolf report @user8 citizen')
+
+    context.saveState(timeout(context.state!, context.channelManager, context.scheduler))
+
+    await runParse('user1', 'main', '@werewolf vote @user4')
+    await runParse('user2', 'main', '@werewolf vote @user4')
+    await runParse('user3', 'main', '@werewolf vote @user4')
+    await runParse('user4', 'main', '@werewolf vote @user1')
+    await runParse('user5', 'main', '@werewolf vote @user4')
+    await runParse('user6', 'main', '@werewolf vote @user4')
+    await runParse('user7', 'main', '@werewolf vote @user4')
+
+    await runParse('user1', '1,2', '@werewolf bite @user5')
+
+    await runParse('user3', '3', '@werewolf fortune @user5')
+    await runParse('user6', '6', '@werewolf escort @user5')
+
+    context.saveState(timeout(context.state!, context.channelManager, context.scheduler))
+
+    await runParse('user5', 'main', '@werewolf report @user8 citizen')
+    await runParse('user1', 'main', '@werewolf report @user8 citizen')
+    await runParse('user3', 'main', '@werewolf report @user8 citizen')
+
+    context.saveState(timeout(context.state!, context.channelManager, context.scheduler))
+
+    await runParse('user1', 'main', '@werewolf vote @user7')
+    await runParse('user2', 'main', '@werewolf vote @user6')
+    await runParse('user3', 'main', '@werewolf vote @user1')
+    await runParse('user5', 'main', '@werewolf vote @user2')
+
+    context.saveState(timeout(context.state!, context.channelManager, context.scheduler))
+
+    await runParse('user1', 'main', '@werewolf vote @user5')
+
+    await runParse('user1', 'main', '@werewolf vote @user7')
+    await runParse('user2', 'main', '@werewolf vote @user7')
+    await runParse('user3', 'main', '@werewolf vote @user7')
+    await runParse('user5', 'main', '@werewolf vote @user1')
+    await runParse('user6', 'main', '@werewolf vote @user1')
+
+    context.saveState(timeout(context.state!, context.channelManager, context.scheduler))
+
+    await runParse('user1', '1,2', '@werewolf bite @user3')
+
+    await runParse('user3', '3', '@werewolf fortune @user1')
+    await runParse('user6', '6', '@werewolf escort @user5')
+
+    context.saveState(timeout(context.state!, context.channelManager, context.scheduler))
+
+    expect(context.state).toBe({})
+  })
 })

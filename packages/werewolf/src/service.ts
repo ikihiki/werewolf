@@ -232,3 +232,9 @@ export const vote = (state: RootState, channelManager: ChannelManager, scheduler
   player.Vote(targetPlayer)
   return game.getState()
 }
+
+export const timeout = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler)=>{
+  const game = storeGame(state, channelManager, scheduler)
+  game.TimeOut()
+  return game.getState()
+}
