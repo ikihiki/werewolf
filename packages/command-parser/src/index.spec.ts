@@ -1,9 +1,10 @@
 import dayjs from 'dayjs'
-import { RootState, Scheduler, ChannelManager, Message, ChannelsState, MessageTarget, ChannelState, Position, timeout } from 'werewolf'
+import { Scheduler, ChannelManager, Message, ChannelsState, MessageTarget, ChannelState, Position, timeout } from 'werewolf'
 import { parse, ParserContext, translate } from './index'
 import * as Immutable from 'immutable'
 import { Report } from 'werewolf/dest/player'
 import { string } from 'yargs'
+import { RootState } from 'werewolf/dest/game'
 
 class TestScheduler implements Scheduler {
   schedules:dayjs.Dayjs[]= [];
@@ -35,11 +36,11 @@ class TestParserContext implements ParserContext {
     this.replys.push(text)
   }
 
-  loadState (): RootState | undefined {
+  loadState (): string | undefined {
     return this.state
   }
 
-  saveState (state: RootState): void {
+  saveState (state: string): void {
     this.state = state
   }
 
@@ -66,9 +67,16 @@ class TestParserContext implements ParserContext {
   ])
 
   replys: string[] = []
-  state?: RootState;
+  state?: string;
 
-  constructor (userId: string, userName: string, room: string, state?: RootState) {
+  getState (): RootState {
+    if (this.state === undefined) {
+      throw new Error('state is undefined')
+    }
+    return JSON.parse(this.state) as RootState
+  }
+
+  constructor (userId: string, userName: string, room: string, state?: string) {
     this.messageUserId = userId
     this.messageUserName = userName
     this.messageRoom = room
@@ -76,7 +84,7 @@ class TestParserContext implements ParserContext {
   }
 }
 
-const startState: RootState = {
+const startState:RootState = {
   players: [
     {
       Id: 'test_game-9',
@@ -343,57 +351,62 @@ describe('parse', () => {
     const context = new TestParserContext('1', 'user1', 'main')
     await parse('@werewolf NewGame @user1 @user2 @user3 @user4 @user5 @user6 @user7 @user8 @user9 -o 1 -t 1 -k 1 -c 1 -s 2', context, users => users, 'test_game')
     expect(context.replys[0]).toBeTruthy()
-    expect(JSON.parse(JSON.stringify(context.state))).toStrictEqual(JSON.parse(JSON.stringify(startState)))
+    expect(context.getState()).toStrictEqual(JSON.parse(JSON.stringify(startState)))
   })
 
   it('co', async () => {
-    const context = new TestParserContext('1', 'user1', 'main', startState)
+    const context = new TestParserContext('1', 'user1', 'main', JSON.stringify(startState))
     await parse('@werewolf co 占い師', context)
-    expect(context.state?.players.find(p => p.UserId === '1')?.CamingOut).toBe('FortuneTeller' as Position)
+    expect(context.getState().players.find(p => p.UserId === '1')?.CamingOut).toBe('FortuneTeller' as Position)
   })
   it('co with report', async () => {
-    const context = new TestParserContext('1', 'user1', 'main', startState)
+    const context = new TestParserContext('1', 'user1', 'main', JSON.stringify(startState))
     await parse('@werewolf co 占い師 @user2 人狼', context)
-    expect(context.state?.players.find(p => p.UserId === '1')?.CamingOut).toBe('FortuneTeller' as Position)
-    expect(context.state?.players.find(p => p.UserId === '1')?.Reports[0]).toStrictEqual({ target: 'test_game-2', camp: 'Werewolf Side' } as Report)
+    expect(context.getState().players.find(p => p.UserId === '1')?.CamingOut).toBe('FortuneTeller' as Position)
+    expect(context.getState().players.find(p => p.UserId === '1')?.Reports[0]).toStrictEqual({ target: 'test_game-2', camp: 'Werewolf Side' } as Report)
   })
   it('report', async () => {
     const state = { ...startState }
     state.players.find(p => p.UserId === '1')!.CamingOut = 'FortuneTeller'
-    const context = new TestParserContext('1', 'user1', 'main', state)
+    const context = new TestParserContext('1', 'user1', 'main', JSON.stringify(startState))
     await parse('@werewolf report @user2 人狼', context)
-    expect(context.state?.players.find(p => p.UserId === '1')?.Reports).toStrictEqual([{ target: 'test_game-2', camp: 'Werewolf Side' } as Report])
+    expect(context.state).toBeTruthy()
+    expect(context.getState().players.find(p => p.UserId === '1')?.Reports).toStrictEqual([{ target: 'test_game-2', camp: 'Werewolf Side' } as Report])
   })
 
   it('vote', async () => {
     const state = { ...startState }
     state.game.Phase = 'Vote'
     state.players = state.players.map(p => ({ ...p, IsVotingTarget: true }))
-    const context = new TestParserContext('1', 'user1', 'main', state)
+    const context = new TestParserContext('1', 'user1', 'main', JSON.stringify(state))
     await parse('@werewolf vote @user2', context)
-    expect(context.state?.players.find(p => p.UserId === '1')?.VoteTo).toStrictEqual('test_game-2')
+    expect(context.state).toBeTruthy()
+    expect(context.getState().players.find(p => p.UserId === '1')?.VoteTo).toStrictEqual('test_game-2')
   })
 
   it('bite', async () => {
     const state = { ...startState }
     state.game.Phase = 'Night'
-    const context = new TestParserContext('9', 'user9', '9,8', state)
+    const context = new TestParserContext('9', 'user9', '9,8', JSON.stringify(startState))
     await parse('@werewolf bite @user1', context)
-    expect(context.state?.players.find(p => p.UserId === '1')?.IsBited).toBe(true)
+    expect(context.state).toBeTruthy()
+    expect(context.getState().players.find(p => p.UserId === '1')?.IsBited).toBe(true)
   })
   it('escort', async () => {
     const state = { ...startState }
     state.game.Phase = 'Night'
-    const context = new TestParserContext('4', 'user4', '4', state)
+    const context = new TestParserContext('4', 'user4', '4', JSON.stringify(startState))
     await parse('@werewolf escort @user1', context)
-    expect(context.state?.players.find(p => p.UserId === '1')?.IsProtected).toBe(true)
+    expect(context.state).toBeTruthy()
+    expect(context.getState().players.find(p => p.UserId === '1')?.IsProtected).toBe(true)
   })
 
   it('fortune', async () => {
     const state = { ...startState }
     state.game.Phase = 'Night'
-    const context = new TestParserContext('7', 'user7', '7', state)
+    const context = new TestParserContext('7', 'user7', '7', JSON.stringify(startState))
     await parse('@werewolf fortune @user9', context)
+    expect(context.state).toBeTruthy()
     expect(context.replys).toStrictEqual(['@9はWerewolf Sideです。'])
   })
 

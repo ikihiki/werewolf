@@ -299,6 +299,20 @@ const rootTask = function * (messageTransmitter: ChannelManager, scheduler: Sche
   yield takeEvery(setSchedule.type, setScheduleTask, scheduler)
 }
 
+function parseState (value:string):RootState {
+  const json = JSON.parse(value)
+  return {
+    game: json.game,
+    players: json.players,
+    users: json.users,
+    channels: Immutable.Map(json.channels)
+  }
+}
+
+function serializeState (state:RootState):string {
+  return JSON.stringify(state)
+}
+
 export class Game {
   store: Store<RootState, AnyAction>
   #channelManager: ChannelManager
@@ -315,13 +329,13 @@ export class Game {
   constructor(
     channelManager: ChannelManager,
     scheduler: Scheduler,
-    state: RootState
+    stateText: string
   );
 
   constructor (
     channelManager: ChannelManager,
     scheduler: Scheduler,
-    stateOrPlayer: PlayerState[] | RootState,
+    stateOrPlayer: PlayerState[] | string,
     users?: User[],
     config?: Config,
     allChannelId?:ChannelId,
@@ -344,7 +358,7 @@ export class Game {
     )
     sagaMiddleware.run(rootTask, channelManager, scheduler)
 
-    if (users && config && allChannelId) {
+    if (users && config && allChannelId && stateOrPlayer instanceof Array) {
       const players = stateOrPlayer as PlayerState[]
       gameId = gameId || Date.now().toString()
       this.store.dispatch(setGameId(gameId))
@@ -352,10 +366,13 @@ export class Game {
       this.store.dispatch(setInitialPlayerState({ state: players }))
       this.store.dispatch(setInitialUserState({ state: users.map(user => ({ Id: user.Id, Name: user.Name } as UserState)) }))
       this.store.dispatch(addChannel({ id: allChannelId, target: 'All', users: users.map(user => user.Id) }))
-    } else {
-      for (const key in stateOrPlayer) {
-        (this.store.getState() as any)[key] = (stateOrPlayer as any)[key]
+    } else if (typeof stateOrPlayer === 'string') {
+      const state = parseState(stateOrPlayer)
+      for (const key in state) {
+        (this.store.getState() as any)[key] = (state as any)[key]
       }
+    } else {
+      throw new Error('arg is wrong')
     }
   }
 
@@ -414,24 +431,32 @@ export class Game {
     this.store.dispatch(timeOut())
   }
 
-  getState () {
+  getState ():RootState {
     return this.store.getState()
   }
 
-  isNight () {
+  isNight ():boolean {
     return gameSelector(this.getState()).Phase === 'Night'
   }
 
-  isVoteTime () {
+  isVoteTime ():boolean {
     return gameSelector(this.getState()).Phase === 'Vote'
   }
 
-  getChannel (id:ChannelId) {
+  isGameOver ():boolean {
+    return this.getState().game.Phase === 'GameOver'
+  }
+
+  getChannel (id:ChannelId): Channel | undefined {
     const state = channelSelector(this.getState(), id)
     if (state === undefined) {
       return undefined
     } else {
       return new Channel(state)
     }
+  }
+
+  getSerializedState (): string {
+    return serializeState(this.getState())
   }
 }

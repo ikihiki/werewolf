@@ -1,5 +1,5 @@
 import { Config } from './config'
-import { Game, GameId, RootState } from './game'
+import { Game, GameId } from './game'
 import { Scheduler } from './scheduler'
 import { ChannelId, ChannelManager } from './channel'
 import { Camp, createCitizenStore, createFortuneTellerStore, createKnightStore, createPsychicStore, createPsychoStore, createSharerStore, createWerewolfStore, PlayerState, Position } from './player'
@@ -7,9 +7,9 @@ import { User, UserId } from './user'
 import { ErrorMessage } from './error'
 import pino, { Logger } from 'pino'
 
-export type ShuffleFunc=(users:User[])=>User[]
+export type ShuffleFunc = (users: User[]) => User[]
 
-function shuffle<T> ([...array]:Array<T>):Array<T> {
+function shuffle<T> ([...array]: Array<T>): Array<T> {
   for (let i = array.length - 1; i >= 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [array[i], array[j]] = [array[j], array[i]]
@@ -94,10 +94,10 @@ export const createGame = (
 }
 
 export const storeGame = (
-  state: RootState,
+  state: string,
   channelManager: ChannelManager,
   scheduler: Scheduler
-) => {
+):Game => {
   return new Game(
     channelManager,
     scheduler,
@@ -105,39 +105,39 @@ export const storeGame = (
   )
 }
 
-export const bite = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId) => {
+export const bite = (state: string, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId): string => {
   const game = storeGame(state, channelManager, scheduler)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'Werewolf') {
-    throw new Error('Wrong channel.'as ErrorMessage)
+    throw new Error('Wrong channel.' as ErrorMessage)
   }
   if (!game.isNight()) {
-    throw new Error("It's not night, so I can't run it."as ErrorMessage)
+    throw new Error("It's not night, so I can't run it." as ErrorMessage)
   }
   const player = game.getPlayerByUserId(user)
   if (player === undefined) {
-    throw new Error("Couldn't find the player."as ErrorMessage)
+    throw new Error("Couldn't find the player." as ErrorMessage)
   }
   const targetPlayer = game.getPlayerByUserId(targetUser)
   if (targetPlayer === undefined) {
     throw new Error("Couldn't find the target." as ErrorMessage)
   }
   player.Bite(targetPlayer)
-  return game.getState()
+  return game.getSerializedState()
 }
 
-export const fortune = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId) => {
+export const fortune = (state: string, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId): string => {
   const game = storeGame(state, channelManager, scheduler)
   const channel = game.getChannel(channelId)
   if (channel?.isDm(user) !== true) {
-    throw new Error('Wrong channel.'as ErrorMessage)
+    throw new Error('Wrong channel.' as ErrorMessage)
   }
   if (!game.isNight()) {
-    throw new Error("It's not night, so I can't run it."as ErrorMessage)
+    throw new Error("It's not night, so I can't run it." as ErrorMessage)
   }
   const player = game.getPlayerByUserId(user)
   if (player === undefined) {
-    throw new Error("Couldn't find the player."as ErrorMessage)
+    throw new Error("Couldn't find the player." as ErrorMessage)
   }
   const targetPlayer = game.getPlayerByUserId(targetUser)
   if (targetPlayer === undefined) {
@@ -146,39 +146,39 @@ export const fortune = (state: RootState, channelManager: ChannelManager, schedu
   return player.Fortune(targetPlayer)
 }
 
-export const escort = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId) => {
+export const escort = (state: string, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId): string => {
   const game = storeGame(state, channelManager, scheduler)
   const channel = game.getChannel(channelId)
   if (channel?.isDm(user) !== true) {
-    throw new Error('Wrong channel.'as ErrorMessage)
+    throw new Error('Wrong channel.' as ErrorMessage)
   }
   if (!game.isNight()) {
-    throw new Error("It's not night, so I can't run it."as ErrorMessage)
+    throw new Error("It's not night, so I can't run it." as ErrorMessage)
   }
   const player = game.getPlayerByUserId(user)
   if (player === undefined) {
-    throw new Error("Couldn't find the player."as ErrorMessage)
+    throw new Error("Couldn't find the player." as ErrorMessage)
   }
   const targetPlayer = game.getPlayerByUserId(targetUser)
   if (targetPlayer === undefined) {
     throw new Error("Couldn't find the target." as ErrorMessage)
   }
   player.Escort(targetPlayer)
-  return game.getState()
+  return game.getSerializedState()
 }
 
-export const comingOut = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, position: Position, targetUser?: UserId, camp?: Camp) => {
+export const comingOut = (state: string, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, position: Position, targetUser?: UserId, camp?: Camp): string => {
   const game = storeGame(state, channelManager, scheduler)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'All') {
-    throw new Error('Wrong channel.'as ErrorMessage)
+    throw new Error('Wrong channel.' as ErrorMessage)
   }
   if (game.isNight()) {
-    throw new Error("It's night, so I can't run it."as ErrorMessage)
+    throw new Error("It's night, so I can't run it." as ErrorMessage)
   }
   const player = game.getPlayerByUserId(user)
   if (player === undefined) {
-    throw new Error("Couldn't find the player."as ErrorMessage)
+    throw new Error("Couldn't find the player." as ErrorMessage)
   }
   player.ComingOut(position)
   if (targetUser !== undefined && camp !== undefined) {
@@ -188,53 +188,53 @@ export const comingOut = (state: RootState, channelManager: ChannelManager, sche
     }
     player.Report({ target: targetPlayer.Id, camp: camp })
   }
-  return game.getState()
+  return game.getSerializedState()
 }
 
-export const report = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId, camp: Camp) => {
+export const report = (state: string, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId, camp: Camp): string => {
   const game = storeGame(state, channelManager, scheduler)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'All') {
-    throw new Error('Wrong channel.'as ErrorMessage)
+    throw new Error('Wrong channel.' as ErrorMessage)
   }
   if (game.isNight()) {
-    throw new Error("It's night, so I can't run it."as ErrorMessage)
+    throw new Error("It's night, so I can't run it." as ErrorMessage)
   }
   const player = game.getPlayerByUserId(user)
   if (player === undefined) {
-    throw new Error("Couldn't find the player."as ErrorMessage)
+    throw new Error("Couldn't find the player." as ErrorMessage)
   }
   const targetPlayer = game.getPlayerByUserId(targetUser)
   if (targetPlayer === undefined) {
     throw new Error("Couldn't find the target." as ErrorMessage)
   }
   player.Report({ target: targetPlayer.Id, camp: camp })
-  return game.getState()
+  return game.getSerializedState()
 }
 
-export const vote = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId) => {
+export const vote = (state: string, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId): string => {
   const game = storeGame(state, channelManager, scheduler)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'All') {
-    throw new Error('Wrong channel.'as ErrorMessage)
+    throw new Error('Wrong channel.' as ErrorMessage)
   }
   if (!game.isVoteTime()) {
-    throw new Error("It's not vote time, so I can't run it."as ErrorMessage)
+    throw new Error("It's not vote time, so I can't run it." as ErrorMessage)
   }
   const player = game.getPlayerByUserId(user)
   if (player === undefined) {
-    throw new Error("Couldn't find the player."as ErrorMessage)
+    throw new Error("Couldn't find the player." as ErrorMessage)
   }
   const targetPlayer = game.getPlayerByUserId(targetUser)
   if (targetPlayer === undefined) {
     throw new Error("Couldn't find the target." as ErrorMessage)
   }
   player.Vote(targetPlayer)
-  return game.getState()
+  return game.getSerializedState()
 }
 
-export const timeout = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler) => {
+export const timeout = (state: string, channelManager: ChannelManager, scheduler: Scheduler): string => {
   const game = storeGame(state, channelManager, scheduler)
   game.TimeOut()
-  return game.getState()
+  return game.getSerializedState()
 }

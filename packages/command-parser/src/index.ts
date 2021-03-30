@@ -1,6 +1,6 @@
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
-import { bite, Camp, ChannelId, ChannelManager, comingOut, Config, createGame, ErrorMessage, escort, fortune, GameId, Message, MessageStrings, Position, report, RootState, Scheduler, ShuffleFunc, User, UserId, vote } from 'werewolf'
+import { bite, Camp, ChannelId, ChannelManager, comingOut, Config, createGame, ErrorMessage, escort, fortune, GameId, Message, MessageStrings, Position, report, Scheduler, ShuffleFunc, storeGame, User, UserId, vote } from 'werewolf'
 import i18next from 'i18next'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
@@ -67,8 +67,8 @@ export function translate (message: Message) {
 export interface ParserContext {
   resolveUserId(userName?: string): UserId | undefined;
   reply(text: string): void;
-  loadState(): RootState | undefined;
-  saveState(state: RootState): void;
+  loadState(): string | undefined;
+  saveState(state: string): void;
   removeState():void;
   scheduler: Scheduler;
   channelManager: ChannelManager;
@@ -102,9 +102,12 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           .option('finalVote', { alias: 'f', string: true, description: 'final vote time length', default: 'PT10M' }),
       async argv => {
         const state = context.loadState()
-        if (state?.game.Phase !== undefined && state.game.Phase !== 'GameOver') {
-          context.reply('ゲームが進行中です。')
-          return
+        if (state !== undefined) {
+          const game = storeGame(state, context.channelManager, context.scheduler)
+          if (!game.isGameOver()) {
+            context.reply('ゲームが進行中です。')
+            return
+          }
         }
 
         if (argv.users === undefined) {
@@ -159,7 +162,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
         const users = userMatchs.map(match => new User(match.user!, match.name))
         const game = createGame(users, config, context.channelManager, context.scheduler, context.messageRoom, shuffleFunc, gameId)
         await game.startGame()
-        context.saveState(game.getState())
+        context.saveState(game.getSerializedState())
       }
     )
     .command('waive', 'ゲームを放棄', () => { /* empty */ }, async () => {
@@ -362,9 +365,11 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           (err: Error | undefined, _argv: any, output: string) => {
             if (output) {
               context.reply(output)
+              resolve()
             }
             if (err) {
               context.reply(JSON.stringify(err))
+              resolve()
             }
           }
         )
