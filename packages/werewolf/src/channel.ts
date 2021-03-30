@@ -32,7 +32,7 @@ type NoParamTempMessage = {
 }
 export type Message = ValuesType<HasParamTempMessage> | ValuesType<NoParamTempMessage>
 
-export type MessageTarget = 'All'|'Werewolf'|'Sherer' | UserId[]
+export type MessageTarget = 'All'|'Werewolf'|'Sharer' | UserId[]
 export type ChannelId =string
 export interface ChannelManager {
     Join:(userIds: UserId[])=>Promise<ChannelId>

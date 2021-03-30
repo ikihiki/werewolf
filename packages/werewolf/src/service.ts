@@ -29,7 +29,7 @@ export const createGame = (
   gameId = gameId || Date.now().toString()
   const players: PlayerState[] = []
   shuffleFunc = shuffleFunc || shuffle
-  const shuffledUsers = shuffleFunc(users)
+  const shuffledUsers = shuffleFunc([...users])
   // werewolf
   for (let i = 0; i < config.numberOfWerewolf; i++) {
     const user = shuffledUsers.pop()
@@ -38,14 +38,14 @@ export const createGame = (
     }
     players.push(createWerewolfStore(`${gameId}-${user.Id}`, user))
   }
-  //fortune teller
+  // fortune teller
   for (let i = 0; i < config.numberOfFortuneTeller; i++) {
     const user = shuffledUsers.pop()
     if (!user) {
       throw new Error('なんか役職のプレイヤーがおらん')
     } players.push(createFortuneTellerStore(`${gameId}-${user.Id}`, user))
   }
-  //psycho
+  // psycho
   for (let i = 0; i < config.numberOfPsycho; i++) {
     const user = shuffledUsers.pop()
     if (!user) {
@@ -53,7 +53,7 @@ export const createGame = (
     }
     players.push(createPsychoStore(`${gameId}-${user.Id}`, user))
   }
-  //psychic
+  // psychic
   for (let i = 0; i < config.numberOfPsychic; i++) {
     const user = shuffledUsers.pop()
     if (!user) {
@@ -61,7 +61,7 @@ export const createGame = (
     }
     players.push(createPsychicStore(`${gameId}-${user.Id}`, user))
   }
-  //knight
+  // knight
   for (let i = 0; i < config.numberOfKnight; i++) {
     const user = shuffledUsers.pop()
     if (!user) {
@@ -69,7 +69,7 @@ export const createGame = (
     }
     players.push(createKnightStore(`${gameId}-${user.Id}`, user))
   }
-  //sharer
+  // sharer
   for (let i = 0; i < config.numberOfSharer; i++) {
     const user = shuffledUsers.pop()
     if (!user) {
@@ -77,7 +77,7 @@ export const createGame = (
     }
     players.push(createSharerStore(`${gameId}-${user.Id}`, user))
   }
-  //citizen
+  // citizen
   for (const user of shuffledUsers) {
     players.push(createCitizenStore(`${gameId}-${user.Id}`, user))
   }
@@ -233,7 +233,7 @@ export const vote = (state: RootState, channelManager: ChannelManager, scheduler
   return game.getState()
 }
 
-export const timeout = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler)=>{
+export const timeout = (state: RootState, channelManager: ChannelManager, scheduler: Scheduler) => {
   const game = storeGame(state, channelManager, scheduler)
   game.TimeOut()
   return game.getState()

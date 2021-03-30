@@ -217,7 +217,40 @@ const startState: RootState = {
     {
       Id: '1',
       Name: '@user1'
+    },
+    {
+      Id: '2',
+      Name: '@user2'
+    },
+    {
+      Id: '3',
+      Name: '@user3'
+    },
+    {
+      Id: '4',
+      Name: '@user4'
+    },
+    {
+      Id: '5',
+      Name: '@user5'
+    },
+    {
+      Id: '6',
+      Name: '@user6'
+    },
+    {
+      Id: '7',
+      Name: '@user7'
+    },
+    {
+      Id: '8',
+      Name: '@user8'
+    },
+    {
+      Id: '9',
+      Name: '@user9'
     }
+
   ],
   channels: Immutable.Map<MessageTarget, ChannelState>([
     [['1'], {
@@ -265,14 +298,22 @@ const startState: RootState = {
         '7'
       ]
     }],
-    [['All'], {
+    ['All', {
       Id: 'main',
       Target: 'All',
       Users: [
-        '1'
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+        '6',
+        '7',
+        '8',
+        '9'
       ]
     }],
-    [['Werewolf'], {
+    ['Werewolf', {
       Id: '9,8',
       Target: 'Werewolf',
       Users: [
@@ -280,9 +321,9 @@ const startState: RootState = {
         '8'
       ]
     }],
-    [['Sherer'], {
+    ['Sharer', {
       Id: '3,2',
-      Target: 'Sherer',
+      Target: 'Sharer',
       Users: [
         '3',
         '2'

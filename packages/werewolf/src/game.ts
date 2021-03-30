@@ -45,8 +45,8 @@ import { chunk, max } from 'lodash'
 import { compose } from 'redux'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
-import utc from "dayjs/plugin/utc";
-import timezone from "dayjs/plugin/timezone";
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
 import { Scheduler } from './scheduler'
 
 import Immutable from 'immutable'
@@ -56,7 +56,7 @@ dayjs.extend(utc)
 dayjs.extend(timezone)
 
 export type GameId = string;
-export type Phase = 'BeforGame'|'Daytime' | 'Vote' | 'Night' | 'GameOver';
+export type Phase = 'BeforeGame'|'Daytime' | 'Vote' | 'Night' | 'GameOver';
 interface GameState {
   Id: GameId;
   Phase: Phase;
@@ -66,11 +66,11 @@ interface GameState {
 const timeOut = createAction('timeOut')
 const gameSline = createSlice({
   name: 'game',
-  initialState: { Phase: 'BeforGame', Days: 0 } as GameState,
+  initialState: { Phase: 'BeforeGame', Days: 0 } as GameState,
   reducers: {
-    setGameId: (state, action:PayloadAction<GameId>)=>({
+    setGameId: (state, action:PayloadAction<GameId>) => ({
       ...state,
-      Id:action.payload
+      Id: action.payload
     }),
     setConfig: (state, action: PayloadAction<Config>) => ({
       ...state,
@@ -371,8 +371,8 @@ export class Game {
       const groups = chunk(sharerUserIds, 2)
       for (const group of groups) {
         const shererChannelId = await this.#channelManager.Join(group)
-        this.store.dispatch(addChannel({ id: shererChannelId, target: 'Sherer', users: sharerUserIds }))
-        this.store.dispatch(sendMessage({ target: 'Sherer', message: { message: 'You are {{position}}', param: { position: 'Sharer' } } }))
+        this.store.dispatch(addChannel({ id: shererChannelId, target: 'Sharer', users: sharerUserIds }))
+        this.store.dispatch(sendMessage({ target: 'Sharer', message: { message: 'You are {{position}}', param: { position: 'Sharer' } } }))
       }
     }
 
@@ -383,7 +383,7 @@ export class Game {
       this.store.dispatch(sendMessage({ target: [player.UserId], message: { message: 'You are {{position}}', param: { position: player.Position } } }))
     }
     const config = gameSelector(this.getState()).Config
-    this.store.dispatch(sendMessage({target:'All',message:{message:'The werewolf game start'}}))
+    this.store.dispatch(sendMessage({ target: 'All', message: { message: 'The werewolf game start' } }))
     this.store.dispatch(toDay())
     this.store.dispatch(setSchedule({ date: dayjs().utc().add(dayjs.duration(config.dayLength)) }))
   }
