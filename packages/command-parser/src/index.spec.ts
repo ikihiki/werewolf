@@ -15,7 +15,7 @@ class TestScheduler implements Scheduler {
 
 class TestChannelManager implements ChannelManager {
   channels = new Map<string, string[]>([['main', []]])
-
+  invalid:[string, Message][] =[]
   Join (userIds: string[]) {
     const channelId = userIds.join(',')
     this.channels.set(channelId, [])
@@ -23,7 +23,12 @@ class TestChannelManager implements ChannelManager {
   }
 
   Send (id: string, message: Message) {
-    this.channels.get(id)?.push(translate(message))
+    const channel = this.channels.get(id)
+    if (channel === undefined) {
+      this.invalid.push([id, message])
+    } else {
+      channel.push(translate(message))
+    }
   }
 }
 
@@ -410,6 +415,114 @@ describe('parse', () => {
     expect(context.replys).toStrictEqual(['@9はWerewolf Sideです。'])
   })
 
+  const endState = {
+    players: [
+      { Id: 'test_game-1', UserId: '1', IsBited: false, IsSurvival: true, CamingOut: null, IsProtected: false, IsVotingTarget: false, VoteTo: null, Reports: [], Camp: 'Werewolf Side', Position: 'Werewolf' },
+      { Id: 'test_game-2', UserId: '2', IsBited: false, IsSurvival: true, CamingOut: null, IsProtected: false, IsVotingTarget: false, VoteTo: null, Reports: [], Camp: 'Werewolf Side', Position: 'Werewolf' },
+      { Id: 'test_game-3', UserId: '3', IsBited: false, IsSurvival: false, CamingOut: null, IsProtected: false, IsVotingTarget: false, VoteTo: null, Reports: [], Camp: 'Citizen Side', Position: 'FortuneTeller' },
+      { Id: 'test_game-4', UserId: '4', IsBited: false, IsSurvival: false, CamingOut: null, IsProtected: false, IsVotingTarget: false, VoteTo: null, Reports: [], Camp: 'Werewolf Side', Position: 'Psycho' },
+      { Id: 'test_game-5', UserId: '5', IsBited: false, IsSurvival: true, CamingOut: null, IsProtected: false, IsVotingTarget: false, VoteTo: null, Reports: [], Camp: 'Citizen Side', Position: 'Psychic' },
+      { Id: 'test_game-6', UserId: '6', IsBited: false, IsSurvival: true, CamingOut: null, IsProtected: false, IsVotingTarget: false, VoteTo: null, Reports: [], Camp: 'Citizen Side', Position: 'Knight' },
+      { Id: 'test_game-7', UserId: '7', IsBited: false, IsSurvival: false, CamingOut: null, IsProtected: false, IsVotingTarget: false, VoteTo: null, Reports: [], Camp: 'Citizen Side', Position: 'Sharer' },
+      { Id: 'test_game-8', UserId: '8', IsBited: false, IsSurvival: false, CamingOut: null, IsProtected: false, IsVotingTarget: false, VoteTo: null, Reports: [], Camp: 'Citizen Side', Position: 'Sharer' },
+      { Id: 'test_game-9', UserId: '9', IsBited: false, IsSurvival: false, CamingOut: null, IsProtected: false, IsVotingTarget: false, VoteTo: null, Reports: [], Camp: 'Citizen Side', Position: 'Citizen' }
+    ],
+    game: {
+      Phase: 'GameOver',
+      Days: 3,
+      Id: 'test_game',
+      Config: { numberOfWerewolf: 2, numberOfPsycho: 1, numberOfFortuneTeller: 1, numberOfKnight: 1, numberOfPsychic: 1, numberOfSharer: 2, dayLength: 'PT6H', nightLength: 'PT6H', voteLength: 'PT1H', finalVoteLength: 'PT10M' }
+    },
+    users: [
+      { Id: '1', Name: '@user1' },
+      { Id: '2', Name: '@user2' },
+      { Id: '3', Name: '@user3' },
+      { Id: '4', Name: '@user4' },
+      { Id: '5', Name: '@user5' },
+      { Id: '6', Name: '@user6' },
+      { Id: '7', Name: '@user7' },
+      { Id: '8', Name: '@user8' },
+      { Id: '9', Name: '@user9' }
+    ],
+    channels: {
+      3: { Id: '3', Target: ['3'], Users: ['3'] },
+      4: { Id: '4', Target: ['4'], Users: ['4'] },
+      5: { Id: '5', Target: ['5'], Users: ['5'] },
+      6: { Id: '6', Target: ['6'], Users: ['6'] },
+      9: { Id: '9', Target: ['9'], Users: ['9'] },
+      All: { Id: 'main', Target: 'All', Users: ['1', '2', '3', '4', '5', '6', '7', '8', '9'] },
+      Werewolf: { Id: '1,2', Target: 'Werewolf', Users: ['1', '2'] },
+      Sharer: { Id: '7,8', Target: 'Sharer', Users: ['7', '8'] }
+    }
+  }
+
+  const endChannels = [
+    [
+      'main',
+      [
+        '人狼ゲームを開始します。',
+        '次のフェーズは2021年4月2日 02:43:41に始まります。',
+        '投票の時がやってきました。',
+        '次のフェーズは2021年4月1日 21:43:41に始まります。',
+        '8は処刑されました。',
+        '朝を迎えました。({day}日目)',
+        '9は無残な死体となって発見されました。',
+        '次のフェーズは2021年4月2日 02:43:41に始まります。',
+        '投票の時がやってきました。',
+        '次のフェーズは2021年4月1日 21:43:41に始まります。',
+        '4は処刑されました。',
+        '朝を迎えました。({day}日目)',
+        '誰も殺されることなく、爽やかな朝となりました。',
+        '次のフェーズは2021年4月2日 02:43:41に始まります。',
+        '投票の時がやってきました。',
+        '次のフェーズは2021年4月1日 21:43:41に始まります。',
+        '7は処刑されました。',
+        '人狼が勝利しました。'
+      ]
+    ],
+    [
+      '1,2',
+      [
+        'あなたは”人狼”です。'
+      ]
+    ],
+    [
+      '7,8',
+      [
+        'あなたは”共有者”です。'
+      ]
+    ],
+    [
+      '3',
+      [
+        'あなたは”占い師”です。'
+      ]
+    ],
+    [
+      '4',
+      [
+        'あなたは”狂人”です。'
+      ]
+    ],
+    [
+      '5',
+      [
+        'あなたは”霊媒師”です。'
+      ]
+    ],
+    [
+      '6',
+      [
+        'あなたは”騎士”です。'
+      ]
+    ],
+    [
+      '9',
+      [
+        'あなたは”市民”です。'
+      ]
+    ]
+  ]
   it('senario', async () => {
     const context = new TestParserContext('1', 'user1', 'main')
     const runParse = async (userName:string, room:string, text:string) => {
@@ -500,6 +613,8 @@ describe('parse', () => {
 
     context.saveState(timeout(context.state!, context.channelManager, context.scheduler))
 
-    expect(context.state).toBe({})
+    expect(JSON.parse(context.state!)).toStrictEqual(endState)
+    expect(context.channelManager.invalid).toStrictEqual([])
+    expect(Array.from(context.channelManager.channels.entries())).toStrictEqual(endChannels)
   })
 })
