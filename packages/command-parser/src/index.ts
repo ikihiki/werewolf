@@ -1,11 +1,11 @@
 import yargs from 'yargs'
-import { hideBin } from 'yargs/helpers'
-import { bite, Camp, ChannelId, ChannelManager, comingOut, Config, createGame, ErrorMessage, escort, fortune, GameId, Message, MessageStrings, Position, report, Scheduler, ShuffleFunc, storeGame, User, UserId, vote } from 'werewolf'
+import { bite, Camp, ChannelId, ChannelManager, comingOut, Config, createGame, ErrorMessage, escort, fortune, GameId, Message, MessageStrings, Position, report, Scheduler, ShuffleFunc, StateManager, storeGame, User, UserId, vote } from 'werewolf'
 import i18next from 'i18next'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
+import pino, { Logger } from 'pino'
 
 i18next.init({
   lng: 'ja',
@@ -42,13 +42,13 @@ i18next.init({
         Sharer: '共有者',
         Werewolf: '人狼'
       } as {
-                  [K in MessageStrings | ErrorMessage | Camp | Position]: string;
-              }
+          [K in MessageStrings | ErrorMessage | Camp | Position]: string;
+        }
     }
   }
 })
 
-export function translate (message: Message) {
+export function translate (message: Message): string {
   if (message.message === 'You are {{position}}') {
     return i18next.t(message.message, { position: i18next.t(message.param.position) })
   }
@@ -67,15 +67,31 @@ export function translate (message: Message) {
 export interface ParserContext {
   resolveUserId(userName?: string): UserId | undefined;
   reply(text: string): void;
-  loadState(): string | undefined;
-  saveState(state: string): void;
-  removeState():void;
+  removeState(): void;
+  stateManager: StateManager;
   scheduler: Scheduler;
   channelManager: ChannelManager;
+  logger: Logger;
   messageUserId: UserId;
   messageUserName: string;
   messageRoom: ChannelId;
 }
+
+function strToCamp (str?: string): Camp | undefined {
+  switch (str?.toUpperCase()) {
+    case 'WEREWOLF':
+    case 'WEREWOLF SIDE':
+    case '人狼':
+      return 'Werewolf Side'
+    case 'CITIZEN':
+    case 'CITIZEN SIDE':
+    case '市民':
+      return 'Citizen Side'
+    default:
+      return undefined
+  }
+}
+
 export async function parse (value: string, context: ParserContext, shuffleFunc?: ShuffleFunc, gameId?: GameId): Promise<void> {
   const parser = yargs
     .scriptName('werewolf')
@@ -101,9 +117,9 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           .option('vote', { alias: 'v', string: true, description: 'vote time length', default: 'PT1H' })
           .option('finalVote', { alias: 'f', string: true, description: 'final vote time length', default: 'PT10M' }),
       async argv => {
-        const state = context.loadState()
+        const state = context.stateManager.loadState()
         if (state !== undefined) {
-          const game = storeGame(state, context.channelManager, context.scheduler)
+          const game = storeGame(context)
           if (!game.isGameOver()) {
             context.reply('ゲームが進行中です。')
             return
@@ -162,13 +178,13 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
         const users = userMatchs.map(match => new User(match.user!, match.name))
         const game = createGame(users, config, context.channelManager, context.scheduler, context.messageRoom, shuffleFunc, gameId)
         await game.startGame()
-        context.saveState(game.getSerializedState())
+        context.stateManager.saveState(game.getSerializedState())
       }
     )
     .command('waive', 'ゲームを放棄', () => { /* empty */ }, async () => {
       context.removeState()
       context.reply('ゲームを放棄しました。')
-      // logger.info('%sによってゲームを放棄しました。', res.message.user.get('real_name'))
+      context.logger.info('%sによってゲームを放棄しました。', context.messageUserName)
     })
     .command('co <position> [target] [camp]', 'カミングアウト',
       args =>
@@ -186,7 +202,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
             choices: ['人狼', '市民']
           }),
       async argv => {
-        let pos:Position | undefined
+        let pos: Position | undefined
         switch (argv.position) {
           case '占い師':
             pos = 'FortuneTeller'
@@ -200,25 +216,12 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
         }
 
         const target = context.resolveUserId(argv.target?.replace('@', ''))
-        let camp: Camp | undefined
-        switch (argv.camp) {
-          case '人狼':
-            camp = 'Werewolf Side'
-            break
-          case '市民':
-            camp = 'Citizen Side'
-            break
-        }
-        const state = context.loadState()
-        if (state === undefined) {
-          context.reply('ゲームが実行されていません')
-          return
-        }
+        const camp = strToCamp(argv.camp)
         try {
-          const next = comingOut(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, pos, target, camp)
-          context.saveState(next)
+          comingOut(context, context.messageRoom, context.messageUserId, pos, target, camp)
         } catch (e) {
-          console.log(e)
+          context.logger.error(e)
+          context.reply(translate(e))
         }
       })
     .command('report <target> <camp>', '報告',
@@ -234,28 +237,21 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           }),
       async argv => {
         const target = context.resolveUserId(argv.target?.replace('@', ''))
-        let camp: Camp | undefined
-        switch (argv.camp) {
-          case '人狼':
-            camp = 'Werewolf Side'
-            break
-          case '市民':
-            camp = 'Citizen Side'
-            break
-        }
+        const camp = strToCamp(argv.camp)
         if (target === undefined) {
+          context.reply(`${argv.target}は見つかりませんでした`)
           return
         }
         if (camp === undefined) {
+          context.reply(`${argv.camp}は見つかりませんでした`)
           return
         }
-        const state = context.loadState()
-        if (state === undefined) {
-          context.reply('ゲームが実行されていません')
-          return
+        try {
+          const next = report(context, context.messageRoom, context.messageUserId, target, camp)
+        } catch (e) {
+          context.logger.error(e)
+          context.reply(translate(e))
         }
-        const next = report(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, target, camp)
-        context.saveState(next)
       })
     .command('bite <target>', '咬む',
       args =>
@@ -271,14 +267,9 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
             context.reply(`${argv.target}は見つかりませんでした`)
             return
           }
-          const state = context.loadState()
-          if (state === undefined) {
-            context.reply('ゲームが実行されていません')
-            return
-          }
-          const next = bite(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, userId)
-          context.saveState(next)
+          bite(context, context.messageRoom, context.messageUserId, userId)
         } catch (e) {
+          context.logger.error(e)
           context.reply(translate(e))
         }
       })
@@ -296,14 +287,10 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
             context.reply(`${argv.target}は見つかりませんでした`)
             return
           }
-          const state = context.loadState()
-          if (state === undefined) {
-            context.reply('ゲームが実行されていません')
-            return
-          }
-          const result = fortune(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, userId)
+          const result = fortune(context, context.messageRoom, context.messageUserId, userId)
           context.reply(`@${userId}は${result}です。`)
         } catch (e) {
+          context.logger.error(e)
           context.reply(translate(e))
         }
       })
@@ -320,14 +307,9 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           context.reply(`${argv.target}は見つかりませんでした`)
           return
         }
-        const state = context.loadState()
-        if (state === undefined) {
-          context.reply('ゲームが実行されていません')
-          return
-        }
-        const next = escort(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, userId)
-        context.saveState(next)
+        const next = escort(context, context.messageRoom, context.messageUserId, userId)
       } catch (e) {
+        context.logger.error(e)
         context.reply(translate(e))
       }
     })
@@ -344,14 +326,9 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           context.reply(`${argv.target}は見つかりませんでした`)
           return
         }
-        const state = context.loadState()
-        if (state === undefined) {
-          context.reply('ゲームが実行されていません')
-          return
-        }
-        const next = vote(state, context.channelManager, context.scheduler, context.messageRoom, context.messageUserId, userId)
-        context.saveState(next)
+        vote(context, context.messageRoom, context.messageUserId, userId)
       } catch (e) {
+        context.logger.error(e)
         context.reply(translate(e))
       }
     })

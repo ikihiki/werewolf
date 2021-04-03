@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
-import { ChannelManager, createGame, Scheduler, some } from 'werewolf'
+import { ChannelManager, createGame, Scheduler } from 'werewolf'
 import App from './App';
 import { Provider } from 'react-redux';
 import * as serviceWorker from './serviceWorker';
@@ -56,8 +56,6 @@ const scheduler: Scheduler = {
 
 
 const game = createGame(users, config, channelManager, scheduler, 'All')
-
-console.log(some());
 
 ReactDOM.render(
   <React.StrictMode>

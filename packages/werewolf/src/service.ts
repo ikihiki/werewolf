@@ -5,11 +5,11 @@ import { ChannelId, ChannelManager } from './channel'
 import { Camp, createCitizenStore, createFortuneTellerStore, createKnightStore, createPsychicStore, createPsychoStore, createSharerStore, createWerewolfStore, PlayerState, Position } from './player'
 import { User, UserId } from './user'
 import { ErrorMessage } from './error'
-import pino, { Logger } from 'pino'
+import { Logger } from 'pino'
 
 export type ShuffleFunc = (users: User[]) => User[]
 
-function shuffle<T> ([...array]: Array<T>): Array<T> {
+function shuffle<T>([...array]: Array<T>): Array<T> {
   for (let i = array.length - 1; i >= 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [array[i], array[j]] = [array[j], array[i]]
@@ -93,20 +93,35 @@ export const createGame = (
   )
 }
 
-export const storeGame = (
-  state: string,
-  channelManager: ChannelManager,
-  scheduler: Scheduler
-):Game => {
+export const storeGame = (context: GameContext): Game => {
+  const state = context.stateManager.loadState()
+  if (state === undefined) {
+    throw Error('Game is not started.' as ErrorMessage)
+  }
+
   return new Game(
-    channelManager,
-    scheduler,
+    context.channelManager,
+    context.scheduler,
     state
   )
 }
 
-export const bite = (state: string, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId): string => {
-  const game = storeGame(state, channelManager, scheduler)
+export interface StateManager {
+  loadState(): string | undefined
+  saveState(state: string): void
+  pushAction(actions: any[]): void
+}
+
+export interface GameContext {
+  stateManager: StateManager;
+  channelManager: ChannelManager;
+  scheduler: Scheduler;
+  logger: Logger;
+}
+
+
+export const bite = (context: GameContext, channelId: ChannelId, user: UserId, targetUser: UserId): void => {
+  const game = storeGame(context)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'Werewolf') {
     throw new Error('Wrong channel.' as ErrorMessage)
@@ -123,11 +138,13 @@ export const bite = (state: string, channelManager: ChannelManager, scheduler: S
     throw new Error("Couldn't find the target." as ErrorMessage)
   }
   player.Bite(targetPlayer)
-  return game.getSerializedState()
+  game.checkError()
+  context.stateManager.saveState(game.getSerializedState())
+
 }
 
-export const fortune = (state: string, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId): string => {
-  const game = storeGame(state, channelManager, scheduler)
+export const fortune = (context: GameContext, channelId: ChannelId, user: UserId, targetUser: UserId): string => {
+  const game = storeGame(context)
   const channel = game.getChannel(channelId)
   if (channel?.isDm(user) !== true) {
     throw new Error('Wrong channel.' as ErrorMessage)
@@ -146,8 +163,8 @@ export const fortune = (state: string, channelManager: ChannelManager, scheduler
   return player.Fortune(targetPlayer)
 }
 
-export const escort = (state: string, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId): string => {
-  const game = storeGame(state, channelManager, scheduler)
+export const escort = (context: GameContext, channelId: ChannelId, user: UserId, targetUser: UserId): void => {
+  const game = storeGame(context)
   const channel = game.getChannel(channelId)
   if (channel?.isDm(user) !== true) {
     throw new Error('Wrong channel.' as ErrorMessage)
@@ -164,11 +181,12 @@ export const escort = (state: string, channelManager: ChannelManager, scheduler:
     throw new Error("Couldn't find the target." as ErrorMessage)
   }
   player.Escort(targetPlayer)
-  return game.getSerializedState()
+  game.checkError()
+  context.stateManager.saveState(game.getSerializedState())
 }
 
-export const comingOut = (state: string, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, position: Position, targetUser?: UserId, camp?: Camp): string => {
-  const game = storeGame(state, channelManager, scheduler)
+export const comingOut = (context: GameContext, channelId: ChannelId, user: UserId, position: Position, targetUser?: UserId, camp?: Camp): void => {
+  const game = storeGame(context)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'All') {
     throw new Error('Wrong channel.' as ErrorMessage)
@@ -188,11 +206,12 @@ export const comingOut = (state: string, channelManager: ChannelManager, schedul
     }
     player.Report({ target: targetPlayer.Id, camp: camp })
   }
-  return game.getSerializedState()
+  game.checkError()
+  context.stateManager.saveState(game.getSerializedState())
 }
 
-export const report = (state: string, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId, camp: Camp): string => {
-  const game = storeGame(state, channelManager, scheduler)
+export const report = (context: GameContext, channelId: ChannelId, user: UserId, targetUser: UserId, camp: Camp): void => {
+  const game = storeGame(context)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'All') {
     throw new Error('Wrong channel.' as ErrorMessage)
@@ -209,11 +228,12 @@ export const report = (state: string, channelManager: ChannelManager, scheduler:
     throw new Error("Couldn't find the target." as ErrorMessage)
   }
   player.Report({ target: targetPlayer.Id, camp: camp })
-  return game.getSerializedState()
+  game.checkError()
+  context.stateManager.saveState(game.getSerializedState())
 }
 
-export const vote = (state: string, channelManager: ChannelManager, scheduler: Scheduler, channelId: ChannelId, user: UserId, targetUser: UserId): string => {
-  const game = storeGame(state, channelManager, scheduler)
+export const vote = (context: GameContext, channelId: ChannelId, user: UserId, targetUser: UserId): void => {
+  const game = storeGame(context)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'All') {
     throw new Error('Wrong channel.' as ErrorMessage)
@@ -230,11 +250,13 @@ export const vote = (state: string, channelManager: ChannelManager, scheduler: S
     throw new Error("Couldn't find the target." as ErrorMessage)
   }
   player.Vote(targetPlayer)
-  return game.getSerializedState()
+  game.checkError()
+  context.stateManager.saveState(game.getSerializedState())
 }
 
-export const timeout = (state: string, channelManager: ChannelManager, scheduler: Scheduler): string => {
-  const game = storeGame(state, channelManager, scheduler)
+export const timeout = (context: GameContext): void => {
+  const game = storeGame(context)
   game.TimeOut()
-  return game.getSerializedState()
+  game.checkError()
+  context.stateManager.saveState(game.getSerializedState())
 }

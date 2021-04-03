@@ -5,3 +5,4 @@ export type ErrorMessage =
 | "Couldn't find the player."
 | "Couldn't find the target."
 | 'Wrong channel.'
+| 'Game is not started.'

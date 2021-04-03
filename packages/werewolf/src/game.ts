@@ -37,8 +37,8 @@ import {
   PayloadAction,
   createSelector
 } from '@reduxjs/toolkit'
-import { ChannelManager, MessageTarget, Message, channelSline, createChannelWithTargetSelector, ChannelState, addChannel, ChannelId, sendMessage, createChannelSelector, Channel } from './channel'
-import createSagaMiddleware from 'redux-saga'
+import { ChannelManager, channelSline, createChannelWithTargetSelector, ChannelState, addChannel, ChannelId, sendMessage, createChannelSelector, Channel, MessageTarget } from './channel'
+import createSagaMiddleware, { SagaMiddleware,  } from 'redux-saga'
 import { all, call, put, select, takeEvery } from 'redux-saga/effects'
 import groupBy from 'lodash/fp/groupBy'
 import { chunk, max } from 'lodash'
@@ -305,7 +305,7 @@ function parseState (value:string):RootState {
     game: json.game,
     players: json.players,
     users: json.users,
-    channels: Immutable.Map(json.channels)
+    channels: Immutable.Map(Object.entries( json.channels).map(([key, value])=> key === 'All' || key === 'Werewolf' || key ==='Sharer'?  [key as MessageTarget, value as ChannelState]: [[key],value as ChannelState]))
   }
 }
 
@@ -313,9 +313,15 @@ function serializeState (state:RootState):string {
   return JSON.stringify(state)
 }
 
+interface ErrorData{
+  error: Error,
+  errorInfo: any
+}
+
 export class Game {
   store: Store<RootState, AnyAction>
   #channelManager: ChannelManager
+  #errors: ErrorData[] = []
   constructor(
     channelManager: ChannelManager,
     scheduler: Scheduler,
@@ -349,7 +355,7 @@ export class Game {
       users: userSlice.reducer,
       channels: channelSline.reducer
     })
-    const sagaMiddleware = createSagaMiddleware()
+    const sagaMiddleware = createSagaMiddleware({onError: (err, info)=> this.#errors.push({error:err, errorInfo:info})})
     const composeEnhancers =
       typeof window === 'undefined' ? compose : (window as any).__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose
     this.store = createStore(
@@ -458,5 +464,10 @@ export class Game {
 
   getSerializedState (): string {
     return serializeState(this.getState())
+  }
+  checkError():void{
+    if(this.#errors.length>0){
+      throw [...this.#errors]
+    }
   }
 }

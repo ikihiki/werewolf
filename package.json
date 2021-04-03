@@ -14,6 +14,7 @@
     "core:build": "lerna run build --scope werewolf",
     "web:build": "react-scripts build",
     "web:start": "lerna run start --scope web",
+    "cmd:build": "lerna run build --scope command-parser",
     "hubot:build": "lerna run build --scope werewolf-hubot",
     "hubot:start": "lerna run start --scope werewolf-hubot",
     "hubot:start:slack": "lerna run start:slack --scope werewolf-hubot",

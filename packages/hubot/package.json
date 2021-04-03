@@ -33,6 +33,7 @@
     "i18next": "^19.9.0",
     "node-schedule": "^2.0.0",
     "pino": "^6.11.1",
+    "command-parser": "^1.0.0",
     "werewolf": "^1.0.0",
     "yargs": "^16.2.0"
   },
