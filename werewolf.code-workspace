@@ -1,0 +1,26 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "packages\\werewolf"
+		},
+		{
+			"path": "packages\\command-parser"
+		},
+		{
+			"path": "packages\\hubot"
+		},
+		{
+			"path": "packages\\web"
+		}
+	],
+	"settings": {
+		"workbench.colorCustomizations": {
+			"activityBar.background": "#05286E",
+			"titleBar.activeBackground": "#06389A",
+			"titleBar.activeForeground": "#FCFDFF"
+		}
+	}
+}
