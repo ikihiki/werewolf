@@ -88,9 +88,11 @@ module.exports = function (robot, channelManagerParam, shedulerParam, shuffleFun
                 if (schedule) {
                     schedule.cancel();
                 }
-                schedule = node_schedule_1.scheduleJob('job', date.toDate(), function (fire) {
-                    fireSchedule();
-                });
+                if (date !== undefined) {
+                    schedule = node_schedule_1.scheduleJob('job', date.toDate(), function (fire) {
+                        fireSchedule();
+                    });
+                }
             }
         },
         stateManager: {

@@ -4,13 +4,14 @@ import pino from "pino";
 import { WebClient } from "@slack/web-api";
 import { ChannelManager, GameContext, Scheduler, StateManager, timeout, User } from "werewolf";
 import { parse, ParserContext, translate } from "command-parser";
+import dayjs from "dayjs";
 
 const stateKey = 'state'
 const logger = pino()
 
 module.exports = (robot: Robot, channelManagerParam?: ChannelManager, shedulerParam?: Scheduler, shuffleFunc?: (users: User[]) => User[]) => {
+    let schedule: Job | undefined;
 
-    let schedule: Job;
     const context = {
         channelManager: channelManagerParam || {
             Send: (target, message) => {
@@ -34,9 +35,11 @@ module.exports = (robot: Robot, channelManagerParam?: ChannelManager, shedulerPa
                 if (schedule) {
                     schedule.cancel();
                 }
-                schedule = scheduleJob('job', date.toDate(), (fire) => {
-                    fireSchedule()
-                })
+                if (date !== undefined) {
+                    schedule = scheduleJob('job', date.toDate(), (fire) => {
+                        fireSchedule()
+                    })
+                }
             }
         },
         stateManager: {
@@ -58,6 +61,17 @@ module.exports = (robot: Robot, channelManagerParam?: ChannelManager, shedulerPa
     const fireSchedule = () => {
         timeout(context)
     }
+
+    const nextPhaseStr = JSON.parse(robot.brain.get(stateKey))?.game.NextPhase
+    if (nextPhaseStr != null) {
+        const nextPhase = dayjs(nextPhaseStr)
+        if (dayjs() > nextPhase) {
+            timeout(context)
+        } else if(schedule == null) {
+            context.scheduler.SetSchedule(nextPhase)
+        }
+    }
+
 
     robot.respond(/debug/, res => {
         res.reply(JSON.stringify(robot.brain.get('state'), null, 2))

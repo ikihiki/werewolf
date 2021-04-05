@@ -38,7 +38,7 @@ import {
   createSelector
 } from '@reduxjs/toolkit'
 import { ChannelManager, channelSline, createChannelWithTargetSelector, ChannelState, addChannel, ChannelId, sendMessage, createChannelSelector, Channel, MessageTarget } from './channel'
-import createSagaMiddleware, { SagaMiddleware,  } from 'redux-saga'
+import createSagaMiddleware, { SagaMiddleware } from 'redux-saga'
 import { all, call, put, select, takeEvery } from 'redux-saga/effects'
 import groupBy from 'lodash/fp/groupBy'
 import { chunk, max } from 'lodash'
@@ -47,7 +47,7 @@ import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
-import { Scheduler } from './scheduler'
+import { calcrateNextPhase, Scheduler } from './scheduler'
 
 import Immutable from 'immutable'
 
@@ -61,6 +61,7 @@ interface GameState {
   Id: GameId;
   Phase: Phase;
   Days: number;
+  NextPhase: dayjs.Dayjs | undefined,
   Config: Config;
 }
 const timeOut = createAction('timeOut')
@@ -83,7 +84,7 @@ const gameSline = createSlice({
       ...state,
       Phase: 'GameOver'
     }),
-    setSchedule: (state, actiion:PayloadAction<{date:dayjs.Dayjs}>) => state
+    setSchedule: (state, actiion:PayloadAction<{date:dayjs.Dayjs | undefined}>) => ({ ...state, NextPhase: actiion.payload.date })
   }
 })
 export const {
@@ -215,8 +216,12 @@ function * totalVote () {
           yield put(sendMessage({ target: [psychic.UserId], message: { message: '{{user.Name}} that was executed was a citizen.', param: { user: executedUser } } }))
         }
       }
-      const config:Config = yield select(configSelector)
-      yield put(setSchedule({ date: dayjs().utc().add(dayjs.duration(config.nightLength)) }))
+      const config: Config = yield select(configSelector)
+      const nextPhase = calcrateNextPhase(dayjs().utc(), config.nightLength)
+      if (nextPhase === undefined) {
+        throw new Error('voteLength is invalid')
+      }
+      yield put(setSchedule({ date: nextPhase }))
     }
   } else if (targets && targets.length > 1) {
     yield put(
@@ -225,8 +230,12 @@ function * totalVote () {
     yield put(resetVote())
     const targetUsers: UserState[] = yield all(targets.map(target => select(userWithPlayerIdSelector, target.key)))
     yield put(sendMessage({ target: 'All', message: { message: 'Final Vote. subject are {{ users.Name }}', param: { users: targetUsers } } }))
-    const config:Config = yield select(configSelector)
-    yield put(setSchedule({ date: dayjs().utc().add(dayjs.duration(config.finalVoteLength)) }))
+    const config: Config = yield select(configSelector)
+    const nextPhase = calcrateNextPhase(dayjs().utc(), config.finalVoteLength)
+    if (nextPhase === undefined) {
+      throw new Error('voteLength is invalid')
+    }
+    yield put(setSchedule({ date: nextPhase }))
   }
 }
 
@@ -248,8 +257,12 @@ const timeoutTask = function * () {
     )
     yield put(toVote())
     yield put(sendMessage({ target: 'All', message: { message: 'It\'s vote time.' } }))
-    const config:Config = yield select(configSelector)
-    yield put(setSchedule({ date: dayjs().utc().add(dayjs.duration(config.voteLength)) }))
+    const config: Config = yield select(configSelector)
+    const nextPhase = calcrateNextPhase(dayjs().utc(), config.voteLength)
+    if (nextPhase === undefined) {
+      throw new Error('voteLength is invalid')
+    }
+    yield put(setSchedule({ date: nextPhase }))
   } else if (phase === 'Vote') {
     yield call(totalVote)
   } else if (phase === 'Night') {
@@ -278,8 +291,12 @@ const timeoutTask = function * () {
     } else {
       yield put(sendMessage({ target: 'All', message: { message: 'The morning was uneventful.' } }))
     }
-    const config:Config = yield select(configSelector)
-    yield put(setSchedule({ date: dayjs().utc().add(dayjs.duration(config.dayLength)) }))
+    const config: Config = yield select(configSelector)
+    const nextPhase = calcrateNextPhase(dayjs().utc(), config.dayLength)
+    if (nextPhase === undefined) {
+      throw new Error('voteLength is invalid')
+    }
+    yield put(setSchedule({ date: nextPhase }))
   }
 }
 
@@ -288,24 +305,37 @@ export function * sendMessageTask (messageTransmitter: ChannelManager, action: R
   messageTransmitter.Send(channel.Id, action.payload.message)
 }
 
+const gameoverTask = function * () {
+  yield put(setSchedule({ date: undefined }))
+}
+
 const setScheduleTask = function * (scheduler: Scheduler, action: ReturnType<typeof setSchedule>) {
   scheduler.SetSchedule(action.payload.date)
-  yield put(sendMessage({ target: 'All', message: { message: 'The next phase is {{date}}', param: { date: action.payload.date } } }))
+  if (action.payload.date !== undefined) {
+    yield put(sendMessage({ target: 'All', message: { message: 'The next phase is {{date}}', param: { date: action.payload.date } } }))
+  }
 }
 const rootTask = function * (messageTransmitter: ChannelManager, scheduler: Scheduler) {
   yield takeEvery(vote.type, voteTask)
   yield takeEvery(timeOut.type, timeoutTask)
   yield takeEvery(sendMessage.type, sendMessageTask, messageTransmitter)
   yield takeEvery(setSchedule.type, setScheduleTask, scheduler)
+  yield takeEvery(toGameOver.type, gameoverTask)
 }
 
 function parseState (value:string):RootState {
   const json = JSON.parse(value)
   return {
-    game: json.game,
+    game: {
+      Config: json.game.Config,
+      Days: json.game.Days,
+      Id: json.game.Id,
+      NextPhase: json.game.NextPhase === undefined || json.game.NextPhase === null ? undefined : dayjs(json.game.NextPhase),
+      Phase: json.game.Phase
+    },
     players: json.players,
     users: json.users,
-    channels: Immutable.Map(Object.entries( json.channels).map(([key, value])=> key === 'All' || key === 'Werewolf' || key ==='Sharer'?  [key as MessageTarget, value as ChannelState]: [[key],value as ChannelState]))
+    channels: Immutable.Map(Object.entries(json.channels).map(([key, value]) => key === 'All' || key === 'Werewolf' || key === 'Sharer' ? [key as MessageTarget, value as ChannelState] : [[key], value as ChannelState]))
   }
 }
 
@@ -355,7 +385,7 @@ export class Game {
       users: userSlice.reducer,
       channels: channelSline.reducer
     })
-    const sagaMiddleware = createSagaMiddleware({onError: (err, info)=> this.#errors.push({error:err, errorInfo:info})})
+    const sagaMiddleware = createSagaMiddleware({ onError: (err, info) => this.#errors.push({ error: err, errorInfo: info }) })
     const composeEnhancers =
       typeof window === 'undefined' ? compose : (window as any).__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose
     this.store = createStore(
@@ -408,7 +438,11 @@ export class Game {
     const config = gameSelector(this.getState()).Config
     this.store.dispatch(sendMessage({ target: 'All', message: { message: 'The werewolf game start' } }))
     this.store.dispatch(toDay())
-    this.store.dispatch(setSchedule({ date: dayjs().utc().add(dayjs.duration(config.dayLength)) }))
+    const nextPhase = calcrateNextPhase(dayjs().utc(), config.dayLength)
+    if (nextPhase === undefined) {
+      throw new Error('voteLength is invalid')
+    }
+    this.store.dispatch(setSchedule({ date: nextPhase }))
   }
 
   getPlayerByUserId (user: UserId) {
@@ -465,8 +499,9 @@ export class Game {
   getSerializedState (): string {
     return serializeState(this.getState())
   }
-  checkError():void{
-    if(this.#errors.length>0){
+
+  checkError ():void {
+    if (this.#errors.length > 0) {
       throw [...this.#errors]
     }
   }

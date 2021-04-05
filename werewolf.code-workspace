@@ -4,16 +4,16 @@
 			"path": "."
 		},
 		{
-			"path": "packages\\werewolf"
+			"path": "packages/werewolf"
 		},
 		{
-			"path": "packages\\command-parser"
+			"path": "packages/command-parser"
 		},
 		{
-			"path": "packages\\hubot"
+			"path": "packages/hubot"
 		},
 		{
-			"path": "packages\\web"
+			"path": "packages/web"
 		}
 	],
 	"settings": {

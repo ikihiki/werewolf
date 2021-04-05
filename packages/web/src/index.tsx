@@ -49,7 +49,7 @@ const channelManager = {
 const scheduler: Scheduler = {
   SetSchedule: date => iziToast.success({
     title: 'Schedule set',
-    message: `date is ${date.format()}`,
+    message: `date is ${date?.format()}`,
     timeout: 50000
   })
 }

@@ -1,13 +1,15 @@
 import dayjs from 'dayjs'
-import { Scheduler, ChannelManager, Message, ChannelsState, MessageTarget, ChannelState, Position, timeout, StateManager } from 'werewolf'
+import { Scheduler, ChannelManager, Message, MessageTarget, ChannelState, Position, timeout, StateManager, GameContext } from 'werewolf'
 import { parse, ParserContext, translate } from './index'
 import * as Immutable from 'immutable'
 import { Report } from 'werewolf/dest/player'
 import { RootState } from 'werewolf/dest/game'
 import pino from 'pino'
+import MockDate from 'mockdate'
 
 class TestStateManager implements StateManager {
   state?: string;
+  actions: any[]= [];
   constructor (state?: string) {
     this.state = state
   }
@@ -21,13 +23,13 @@ class TestStateManager implements StateManager {
   }
 
   pushAction (actions: any[]): void {
-    throw new Error('Method not implemented.')
+    this.actions = this.actions.concat(actions)
   }
 }
 
 class TestScheduler implements Scheduler {
-  schedules: dayjs.Dayjs[] = [];
-  SetSchedule (date: dayjs.Dayjs) {
+  schedules: (dayjs.Dayjs | undefined)[] = [];
+  SetSchedule (date: dayjs.Dayjs | undefined) {
     this.schedules.push(date)
   }
 }
@@ -51,7 +53,7 @@ class TestChannelManager implements ChannelManager {
   }
 }
 
-class TestParserContext implements ParserContext {
+class TestParserContext implements ParserContext, GameContext {
   resolveUserId (userName: string): string | undefined {
     return this.users.get(userName)
   }
@@ -67,7 +69,7 @@ class TestParserContext implements ParserContext {
   stateManager: TestStateManager
   scheduler = new TestScheduler()
   channelManager = new TestChannelManager()
-  logger = pino({ write: (msg) => console.log(msg) })
+  logger = pino({ write: (msg) => console.log(msg), level: 'silent' })
   messageUserId: string
   messageUserName: string
   messageRoom: string
@@ -222,6 +224,7 @@ const startState: RootState = {
   ],
   game: {
     Phase: 'Daytime',
+    NextPhase: dayjs('2021-03-31T21:00:00.000Z'),
     Days: 1,
     Id: 'test_game',
     Config: {
@@ -365,13 +368,14 @@ describe('parse', () => {
 
   it('NewGame', async () => {
     const context = new TestParserContext('1', 'user1', 'main')
+    MockDate.set('2021-04-01 00:00:00')
     await parse('@werewolf NewGame @user1 @user2 @user3 @user4 @user5 @user6 @user7 @user8 @user9 -o 1 -t 1 -k 1 -c 1 -s 2', context, users => users, 'test_game')
-    const timeMasked = context.channelManager.channels.get('main')?.map(val => val.replace(/\d{4}年\d{1,2}月\d{1,2}日 \d{1,2}:\d{1,2}:\d{1,2}/i, '****年*月*日 **:**:**'))
-    context.channelManager.channels.set('main', timeMasked || [])
+    MockDate.reset()
+
     expect(context.channelManager.channels.get('main')).toStrictEqual([
       'ゲームの作成を開始しました。',
       '人狼ゲームを開始します。',
-      '次のフェーズは****年*月*日 **:**:**に始まります。'
+      '次のフェーズは2021年4月1日 06:00:00に始まります。'
     ])
     expect(context.getState()).toStrictEqual(JSON.parse(JSON.stringify(startState)))
   })
@@ -506,7 +510,7 @@ describe('parse', () => {
       Phase: 'GameOver',
       Days: 3,
       Id: 'test_game',
-      Config: { numberOfWerewolf: 2, numberOfPsycho: 1, numberOfFortuneTeller: 1, numberOfKnight: 1, numberOfPsychic: 1, numberOfSharer: 2, dayLength: 'PT6H', nightLength: 'PT6H', voteLength: 'PT1H', finalVoteLength: 'PT10M' }
+      Config: { numberOfWerewolf: 2, numberOfPsycho: 1, numberOfFortuneTeller: 1, numberOfKnight: 1, numberOfPsychic: 1, numberOfSharer: 2, dayLength: '18:30', nightLength: '09:00', voteLength: 'PT1H', finalVoteLength: 'PT10M' }
     },
     users: [
       { Id: '1', Name: '@user1' },
@@ -537,25 +541,25 @@ describe('parse', () => {
       [
         'ゲームの作成を開始しました。',
         '人狼ゲームを開始します。',
-        '次のフェーズは****年*月*日 **:**:**に始まります。',
+        '次のフェーズは2021年4月1日 18:30:00に始まります。',
         '投票の時がやってきました。',
-        '次のフェーズは****年*月*日 **:**:**に始まります。',
+        '次のフェーズは2021年4月1日 19:30:00に始まります。',
         '8は処刑されました。',
-        '次のフェーズは****年*月*日 **:**:**に始まります。',
+        '次のフェーズは2021年4月2日 09:00:00に始まります。',
         '朝を迎えました。({day}日目)',
         '9は無残な死体となって発見されました。',
-        '次のフェーズは****年*月*日 **:**:**に始まります。',
+        '次のフェーズは2021年4月2日 18:30:00に始まります。',
         '投票の時がやってきました。',
-        '次のフェーズは****年*月*日 **:**:**に始まります。',
+        '次のフェーズは2021年4月2日 19:30:00に始まります。',
         '4は処刑されました。',
-        '次のフェーズは****年*月*日 **:**:**に始まります。',
+        '次のフェーズは2021年4月3日 09:00:00に始まります。',
         '朝を迎えました。({day}日目)',
         '誰も殺されることなく、爽やかな朝となりました。',
-        '次のフェーズは****年*月*日 **:**:**に始まります。',
+        '次のフェーズは2021年4月3日 18:30:00に始まります。',
         '投票の時がやってきました。',
-        '次のフェーズは****年*月*日 **:**:**に始まります。',
+        '次のフェーズは2021年4月3日 19:30:00に始まります。',
         '7は処刑されました。',
-        '次のフェーズは****年*月*日 **:**:**に始まります。',
+        '次のフェーズは2021年4月4日 09:00:00に始まります。',
         '人狼が勝利しました。'
       ]
     ],
@@ -608,6 +612,20 @@ describe('parse', () => {
       ]
     ]
   ]
+
+  const endSchedules = [
+    '2021-04-01T09:30:00.000Z',
+    '2021-04-01T10:30:00.000Z',
+    '2021-04-02T00:00:00.000Z',
+    '2021-04-02T09:30:00.000Z',
+    '2021-04-02T10:30:00.000Z',
+    '2021-04-03T00:00:00.000Z',
+    '2021-04-03T09:30:00.000Z',
+    '2021-04-03T10:30:00.000Z',
+    '2021-04-04T00:00:00.000Z',
+    null
+  ]
+
   it('senario', async () => {
     const context = new TestParserContext('1', 'user1', 'main')
     const runParse = async (userName: string, room: string, text: string) => {
@@ -620,11 +638,13 @@ describe('parse', () => {
       context.messageUserName = userName
       await parse(text, context)
     }
-    await parse('@werewolf NewGame @user1 @user2 @user3 @user4 @user5 @user6 @user7 @user8 @user9 -o 1 -t 1 -k 1 -c 1 -s 2', context, users => users.reverse(), 'test_game')
+    MockDate.set('2021-04-01 09:30:00')
+    await parse('@werewolf NewGame @user1 @user2 @user3 @user4 @user5 @user6 @user7 @user8 @user9 -o 1 -t 1 -k 1 -c 1 -s 2 -d 18:30 -n 09:00 -v PT1H -f PT10M ', context, users => users.reverse(), 'test_game')
 
     await runParse('user1', 'main', '@werewolf co taller @user7 citizen')
     await runParse('user3', 'main', '@werewolf co 占い @user9 白')
 
+    MockDate.set('2021-04-01 18:30:00')
     timeout(context)
 
     await runParse('user1', 'main', '@werewolf vote @user8')
@@ -644,6 +664,7 @@ describe('parse', () => {
     await runParse('user3', '3', '@werewolf fortune @user6')
     await runParse('user6', '6', '@werewolf escort @user3')
 
+    MockDate.set('2021-04-02 09:00:00')
     timeout(context)
 
     await runParse('user5', 'main', '@werewolf co psychic')
@@ -651,6 +672,7 @@ describe('parse', () => {
     await runParse('user1', 'main', '@werewolf report @user7 citizen')
     await runParse('user3', 'main', '@werewolf report @user6 citizen')
 
+    MockDate.set('2021-04-02 18:30:00')
     timeout(context)
 
     await runParse('user1', 'main', '@werewolf vote @user4')
@@ -666,12 +688,14 @@ describe('parse', () => {
     await runParse('user3', '3', '@werewolf fortune @user5')
     await runParse('user6', '6', '@werewolf escort @user5')
 
+    MockDate.set('2021-04-03 09:00:00')
     timeout(context)
 
     await runParse('user5', 'main', '@werewolf report @user4 citizen')
     await runParse('user1', 'main', '@werewolf report @user2 citizen')
     await runParse('user3', 'main', '@werewolf report @user5 citizen')
 
+    MockDate.set('2021-04-03 18:30:00')
     timeout(context)
 
     await runParse('user1', 'main', '@werewolf vote @user7')
@@ -679,16 +703,17 @@ describe('parse', () => {
     await runParse('user3', 'main', '@werewolf vote @user1')
     await runParse('user5', 'main', '@werewolf vote @user2')
 
+    MockDate.set('2021-04-03 19:30:00')
     timeout(context)
 
     await runParse('user1', 'main', '@werewolf vote @user5')
-
     await runParse('user1', 'main', '@werewolf vote @user7')
     await runParse('user2', 'main', '@werewolf vote @user7')
     await runParse('user3', 'main', '@werewolf vote @user7')
     await runParse('user5', 'main', '@werewolf vote @user1')
     await runParse('user6', 'main', '@werewolf vote @user1')
 
+    MockDate.set('2021-04-03 19:40:00')
     timeout(context)
 
     await runParse('user1', '1,2', '@werewolf bite @user3')
@@ -696,12 +721,12 @@ describe('parse', () => {
     await runParse('user3', '3', '@werewolf fortune @user1')
     await runParse('user6', '6', '@werewolf escort @user5')
 
+    MockDate.set('2021-04-04 09:00:00')
     timeout(context)
 
     expect(context.getState()).toStrictEqual(endState)
     expect(context.channelManager.invalid).toStrictEqual([])
-    const timeMasked = context.channelManager.channels.get('main')?.map(val => val.replace(/\d{4}年\d{1,2}月\d{1,2}日 \d{1,2}:\d{1,2}:\d{1,2}/i, '****年*月*日 **:**:**'))
-    context.channelManager.channels.set('main', timeMasked || [])
     expect(Array.from(context.channelManager.channels.entries())).toStrictEqual(endChannels)
+    expect(JSON.parse(JSON.stringify(context.scheduler.schedules))).toStrictEqual(endSchedules)
   })
 })
