@@ -94,7 +94,13 @@ module.exports = function (robot, channelManagerParam, shedulerParam, shuffleFun
             }
         },
         stateManager: {
-            loadState: function () { return robot.brain.get(stateKey); },
+            loadState: function () {
+                var state = robot.brain.get(stateKey);
+                if (state === undefined || state === null) {
+                    return undefined;
+                }
+                return state;
+            },
             saveState: function (state) { return robot.brain.set(stateKey, state); },
             pushAction: function (action) { return robot.brain.set('a', action); }
         },

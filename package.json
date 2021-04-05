@@ -17,7 +17,7 @@
     "cmd:build": "lerna run build --scope command-parser",
     "hubot:build": "lerna run build --scope werewolf-hubot",
     "hubot:start": "lerna run start --scope werewolf-hubot",
-    "hubot:start:slack": "lerna run start:slack --scope werewolf-hubot",
+    "hubot:start:slack": "lerna run start:slack --scope werewolf-hubot --stream",
     "hubot:restart:slack": "lerna run restart:slack --scope werewolf-hubot --stream",
     "hubot:test": "lerna run test --scope werewolf-hubot --stream"
   },

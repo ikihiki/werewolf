@@ -2,14 +2,38 @@ import { Config } from './config'
 import { Game, GameId } from './game'
 import { Scheduler } from './scheduler'
 import { ChannelId, ChannelManager } from './channel'
-import { Camp, createCitizenStore, createFortuneTellerStore, createKnightStore, createPsychicStore, createPsychoStore, createSharerStore, createWerewolfStore, PlayerState, Position } from './player'
+import {
+  Camp,
+  createCitizenStore,
+  createFortuneTellerStore,
+  createKnightStore,
+  createPsychicStore,
+  createPsychoStore,
+  createSharerStore,
+  createWerewolfStore,
+  PlayerState,
+  Position
+} from './player'
 import { User, UserId } from './user'
 import { ErrorMessage } from './error'
 import { Logger } from 'pino'
 
-export type ShuffleFunc = (users: User[]) => User[]
+export type ShuffleFunc = (users: User[]) => User[];
 
-function shuffle<T>([...array]: Array<T>): Array<T> {
+export interface StateManager {
+  loadState(): string | undefined;
+  saveState(state: string): void;
+  pushAction(actions: any[]): void;
+}
+
+export interface GameContext {
+  stateManager: StateManager;
+  channelManager: ChannelManager;
+  scheduler: Scheduler;
+  logger: Logger;
+}
+
+function shuffle<T> ([...array]: Array<T>): Array<T> {
   for (let i = array.length - 1; i >= 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [array[i], array[j]] = [array[j], array[i]]
@@ -43,7 +67,8 @@ export const createGame = (
     const user = shuffledUsers.pop()
     if (!user) {
       throw new Error('なんか役職のプレイヤーがおらん')
-    } players.push(createFortuneTellerStore(`${gameId}-${user.Id}`, user))
+    }
+    players.push(createFortuneTellerStore(`${gameId}-${user.Id}`, user))
   }
   // psycho
   for (let i = 0; i < config.numberOfPsycho; i++) {
@@ -95,32 +120,20 @@ export const createGame = (
 
 export const storeGame = (context: GameContext): Game => {
   const state = context.stateManager.loadState()
-  if (state === undefined) {
+  context.logger.info('store state state text: %o', state)
+  if (state === undefined || state === 'undefined') {
     throw Error('Game is not started.' as ErrorMessage)
   }
 
-  return new Game(
-    context.channelManager,
-    context.scheduler,
-    state
-  )
+  return new Game(context.channelManager, context.scheduler, state)
 }
 
-export interface StateManager {
-  loadState(): string | undefined
-  saveState(state: string): void
-  pushAction(actions: any[]): void
-}
-
-export interface GameContext {
-  stateManager: StateManager;
-  channelManager: ChannelManager;
-  scheduler: Scheduler;
-  logger: Logger;
-}
-
-
-export const bite = (context: GameContext, channelId: ChannelId, user: UserId, targetUser: UserId): void => {
+export const bite = (
+  context: GameContext,
+  channelId: ChannelId,
+  user: UserId,
+  targetUser: UserId
+): void => {
   const game = storeGame(context)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'Werewolf') {
@@ -140,10 +153,14 @@ export const bite = (context: GameContext, channelId: ChannelId, user: UserId, t
   player.Bite(targetPlayer)
   game.checkError()
   context.stateManager.saveState(game.getSerializedState())
-
 }
 
-export const fortune = (context: GameContext, channelId: ChannelId, user: UserId, targetUser: UserId): string => {
+export const fortune = (
+  context: GameContext,
+  channelId: ChannelId,
+  user: UserId,
+  targetUser: UserId
+): string => {
   const game = storeGame(context)
   const channel = game.getChannel(channelId)
   if (channel?.isDm(user) !== true) {
@@ -163,7 +180,12 @@ export const fortune = (context: GameContext, channelId: ChannelId, user: UserId
   return player.Fortune(targetPlayer)
 }
 
-export const escort = (context: GameContext, channelId: ChannelId, user: UserId, targetUser: UserId): void => {
+export const escort = (
+  context: GameContext,
+  channelId: ChannelId,
+  user: UserId,
+  targetUser: UserId
+): void => {
   const game = storeGame(context)
   const channel = game.getChannel(channelId)
   if (channel?.isDm(user) !== true) {
@@ -185,7 +207,14 @@ export const escort = (context: GameContext, channelId: ChannelId, user: UserId,
   context.stateManager.saveState(game.getSerializedState())
 }
 
-export const comingOut = (context: GameContext, channelId: ChannelId, user: UserId, position: Position, targetUser?: UserId, camp?: Camp): void => {
+export const comingOut = (
+  context: GameContext,
+  channelId: ChannelId,
+  user: UserId,
+  position: Position,
+  targetUser?: UserId,
+  camp?: Camp
+): void => {
   const game = storeGame(context)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'All') {
@@ -210,7 +239,13 @@ export const comingOut = (context: GameContext, channelId: ChannelId, user: User
   context.stateManager.saveState(game.getSerializedState())
 }
 
-export const report = (context: GameContext, channelId: ChannelId, user: UserId, targetUser: UserId, camp: Camp): void => {
+export const report = (
+  context: GameContext,
+  channelId: ChannelId,
+  user: UserId,
+  targetUser: UserId,
+  camp: Camp
+): void => {
   const game = storeGame(context)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'All') {
@@ -232,7 +267,12 @@ export const report = (context: GameContext, channelId: ChannelId, user: UserId,
   context.stateManager.saveState(game.getSerializedState())
 }
 
-export const vote = (context: GameContext, channelId: ChannelId, user: UserId, targetUser: UserId): void => {
+export const vote = (
+  context: GameContext,
+  channelId: ChannelId,
+  user: UserId,
+  targetUser: UserId
+): void => {
   const game = storeGame(context)
   const channel = game.getChannel(channelId)
   if (channel?.Target !== 'All') {

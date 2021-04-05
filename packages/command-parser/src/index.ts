@@ -117,6 +117,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           .option('vote', { alias: 'v', string: true, description: 'vote time length', default: 'PT1H' })
           .option('finalVote', { alias: 'f', string: true, description: 'final vote time length', default: 'PT10M' }),
       async argv => {
+        context.logger.info('recived args: %o', argv)
         const state = context.stateManager.loadState()
         if (state !== undefined) {
           const game = storeGame(context)
@@ -169,8 +170,14 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
             }
           }
         })
+          .filter(match => match.name !== '' && match.name !== undefined && match.name !== null)
         const invalidUserName = userMatchs.filter(match => match.user === null).map(match => match.name)
         if (invalidUserName.length > 0) {
+          context.logger.error(
+            '%o は認識できませんでした。matchUsers: %o',
+            invalidUserName,
+            userMatchs
+          )
           context.reply(`${invalidUserName.join(', ')}は認識できませんでした。`)
           return
         }
@@ -202,6 +209,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
             choices: ['人狼', '市民']
           }),
       async argv => {
+        context.logger.info('recived args: %o', argv)
         let pos: Position | undefined
         switch (argv.position) {
           case '占い師':
@@ -236,6 +244,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
             choices: ['人狼', '市民']
           }),
       async argv => {
+        context.logger.info('recived args: %o', argv)
         const target = context.resolveUserId(argv.target?.replace('@', ''))
         const camp = strToCamp(argv.camp)
         if (target === undefined) {
@@ -261,6 +270,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
             description: '咬む相手'
           }),
       async argv => {
+        context.logger.info('recived args: %o', argv)
         try {
           const userId = context.resolveUserId(argv.target?.replace('@', ''))
           if (userId === undefined) {
@@ -281,6 +291,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
             description: '占う相手'
           }),
       async argv => {
+        context.logger.info('recived args: %o', argv)
         try {
           const userId = context.resolveUserId(argv.target?.replace('@', ''))
           if (userId === undefined) {
@@ -301,6 +312,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           description: '護衛する相手'
         }),
     async argv => {
+      context.logger.info('recived args: %o', argv)
       try {
         const userId = context.resolveUserId(argv.target?.replace('@', ''))
         if (userId === undefined) {
@@ -320,6 +332,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
           description: '投票する相手'
         }),
     async argv => {
+      context.logger.info('recived args: %o', argv)
       try {
         const userId = context.resolveUserId(argv.target?.replace('@', ''))
         if (userId === undefined) {

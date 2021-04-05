@@ -40,7 +40,13 @@ module.exports = (robot: Robot, channelManagerParam?: ChannelManager, shedulerPa
             }
         },
         stateManager: {
-            loadState: () => robot.brain.get(stateKey),
+          loadState: () => {
+            const state = robot.brain.get(stateKey)
+            if (state === undefined || state === null) {
+              return undefined
+            }
+            return state
+          },
             saveState: (state) => robot.brain.set(stateKey, state),
             pushAction: (action) => robot.brain.set('a', action)
         } as StateManager,
@@ -58,7 +64,7 @@ module.exports = (robot: Robot, channelManagerParam?: ChannelManager, shedulerPa
     })
 
     robot.respond(/.+/, res => {
-        parse(res.message.text || "", 
+        parse(res.message.text || "",
         {
             ...context,
             reply: (text)=> res.reply(text),
