@@ -55,7 +55,7 @@ const scheduler: Scheduler = {
 }
 
 
-const game = createGame(users, config, channelManager, scheduler, 'All')
+const game = createGame(users, config, {channelManager:channelManager,scheduler:scheduler} 'All')
 
 ReactDOM.render(
   <React.StrictMode>

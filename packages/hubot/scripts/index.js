@@ -54,9 +54,11 @@ var node_schedule_1 = require("node-schedule");
 var pino_1 = __importDefault(require("pino"));
 var werewolf_1 = require("werewolf");
 var command_parser_1 = require("command-parser");
+var dayjs_1 = __importDefault(require("dayjs"));
 var stateKey = 'state';
 var logger = pino_1.default();
 module.exports = function (robot, channelManagerParam, shedulerParam, shuffleFunc) {
+    var _a;
     var schedule;
     var context = {
         channelManager: channelManagerParam || {
@@ -112,10 +114,20 @@ module.exports = function (robot, channelManagerParam, shedulerParam, shuffleFun
     var fireSchedule = function () {
         werewolf_1.timeout(context);
     };
+    var nextPhaseStr = (_a = JSON.parse(robot.brain.get(stateKey))) === null || _a === void 0 ? void 0 : _a.game.NextPhase;
+    if (nextPhaseStr != null) {
+        var nextPhase = dayjs_1.default(nextPhaseStr);
+        if (dayjs_1.default() > nextPhase) {
+            werewolf_1.timeout(context);
+        }
+        else if (schedule == null) {
+            context.scheduler.SetSchedule(nextPhase);
+        }
+    }
     robot.respond(/debug/, function (res) {
         res.reply(JSON.stringify(robot.brain.get('state'), null, 2));
     });
     robot.respond(/.+/, function (res) {
-        command_parser_1.parse(res.message.text || "", __assign(__assign({}, context), { reply: function (text) { return res.reply(text); }, messageRoom: res.message.room, messageUserId: res.message.user.id, messageUserName: res.message.user.name }), shuffleFunc);
+        command_parser_1.parse(res.message.text || "", __assign(__assign({}, context), { reply: function (text) { return res.reply(text); }, messageRoom: res.message.room, messageUserId: res.message.user.id, messageUserName: res.message.user.name, shuffleFunc: shuffleFunc }));
     });
 };

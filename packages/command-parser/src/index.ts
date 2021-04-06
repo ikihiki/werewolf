@@ -75,6 +75,7 @@ export interface ParserContext {
   messageUserId: UserId;
   messageUserName: string;
   messageRoom: ChannelId;
+  shuffleFunc?: ShuffleFunc;
 }
 
 function strToCamp (str?: string): Camp | undefined {
@@ -92,7 +93,7 @@ function strToCamp (str?: string): Camp | undefined {
   }
 }
 
-export async function parse (value: string, context: ParserContext, shuffleFunc?: ShuffleFunc, gameId?: GameId): Promise<void> {
+export async function parse (value: string, context: ParserContext, gameId?: GameId): Promise<void> {
   const parser = yargs
     .scriptName('werewolf')
     .help()
@@ -183,7 +184,7 @@ export async function parse (value: string, context: ParserContext, shuffleFunc?
         }
         context.reply('ゲームの作成を開始しました。')
         const users = userMatchs.map(match => new User(match.user!, match.name))
-        const game = createGame(users, config, context.channelManager, context.scheduler, context.messageRoom, shuffleFunc, gameId)
+        const game = createGame(users, config, context, context.messageRoom, gameId)
         await game.startGame()
         context.stateManager.saveState(game.getSerializedState())
       }

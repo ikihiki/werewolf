@@ -50,6 +50,7 @@ import timezone from 'dayjs/plugin/timezone'
 import { calcrateNextPhase, Scheduler } from './scheduler'
 
 import Immutable from 'immutable'
+import { GameContext } from './service'
 
 dayjs.extend(duration)
 dayjs.extend(utc)
@@ -158,7 +159,7 @@ const judgeWin = function * () {
     return false
   }
 }
-function * totalVote () {
+function * totalVote (context: GameContext) {
   const survivalPlayers: PlayerState[] = yield select(
     survivalPlayersSelector
   )
@@ -167,14 +168,14 @@ function * totalVote () {
       groupBy<PlayerState>((player) => player.VoteTo, survivalPlayers)
     )
   )
-  console.log(votedGroup)
+  context.logger.debug('votedGroup: %o', votedGroup)
   const votedCount = new Map(
     Array.from(votedGroup.entries()).map(([key, players]) => [
       key,
       players.length
     ])
   )
-  console.log(votedCount)
+  context.logger.debug('votedCount: %o', votedCount)
   const countGroup = new Map(
     Object.entries(
       groupBy(
@@ -186,13 +187,13 @@ function * totalVote () {
       )
     )
   )
-  console.log(countGroup)
+  context.logger.debug('countGroup: %o', countGroup)
   const maxCount = max(Array.from(countGroup.keys()).map(count => Number.parseInt(count)))
   if (maxCount === undefined) {
     return
   }
   const targets = countGroup.get(maxCount?.toString())
-  if (targets?.length === 1) {
+  if (targets?.length === 1 && targets[0].key != null) {
     const target = survivalPlayers.find(
       (player) => player.Id === targets[0].key
     )
@@ -239,16 +240,16 @@ function * totalVote () {
   }
 }
 
-function * voteTask () {
+function * voteTask (context:GameContext) {
   const survivalPlayers: PlayerState[] = yield select(
     survivalPlayersSelector
   )
   if (survivalPlayers.every((player) => player.VoteTo !== null)) {
-    yield call(totalVote)
+    yield call(totalVote, context)
   }
 }
 
-const timeoutTask = function * () {
+const timeoutTask = function * (context:GameContext) {
   const phase: Phase = yield select(phaseSelector)
   if (phase === 'Daytime') {
     const targets: PlayerState[] = yield select(survivalPlayersSelector)
@@ -264,7 +265,7 @@ const timeoutTask = function * () {
     }
     yield put(setSchedule({ date: nextPhase }))
   } else if (phase === 'Vote') {
-    yield call(totalVote)
+    yield call(totalVote, context)
   } else if (phase === 'Night') {
     const survivalPlayers: PlayerState[] = yield select(
       survivalPlayersSelector
@@ -300,26 +301,26 @@ const timeoutTask = function * () {
   }
 }
 
-export function * sendMessageTask (messageTransmitter: ChannelManager, action: ReturnType<typeof sendMessage>) {
+export const sendMessageTask = function * (context:GameContext, action: ReturnType<typeof sendMessage>) {
   const channel:ChannelState = yield select(channelWithTargetSelector, action.payload.target)
-  messageTransmitter.Send(channel.Id, action.payload.message)
+  context.channelManager.Send(channel.Id, action.payload.message)
 }
 
 const gameoverTask = function * () {
   yield put(setSchedule({ date: undefined }))
 }
 
-const setScheduleTask = function * (scheduler: Scheduler, action: ReturnType<typeof setSchedule>) {
-  scheduler.SetSchedule(action.payload.date)
+const setScheduleTask = function * (context:GameContext, action: ReturnType<typeof setSchedule>) {
+  context.scheduler.SetSchedule(action.payload.date)
   if (action.payload.date !== undefined) {
     yield put(sendMessage({ target: 'All', message: { message: 'The next phase is {{date}}', param: { date: action.payload.date } } }))
   }
 }
-const rootTask = function * (messageTransmitter: ChannelManager, scheduler: Scheduler) {
-  yield takeEvery(vote.type, voteTask)
-  yield takeEvery(timeOut.type, timeoutTask)
-  yield takeEvery(sendMessage.type, sendMessageTask, messageTransmitter)
-  yield takeEvery(setSchedule.type, setScheduleTask, scheduler)
+const rootTask = function * (context: GameContext) {
+  yield takeEvery(vote.type, voteTask, context)
+  yield takeEvery(timeOut.type, timeoutTask, context)
+  yield takeEvery(sendMessage.type, sendMessageTask, context)
+  yield takeEvery(setSchedule.type, setScheduleTask, context)
   yield takeEvery(toGameOver.type, gameoverTask)
 }
 
@@ -350,11 +351,10 @@ interface ErrorData{
 
 export class Game {
   store: Store<RootState, AnyAction>
-  #channelManager: ChannelManager
+  #context: GameContext
   #errors: ErrorData[] = []
   constructor(
-    channelManager: ChannelManager,
-    scheduler: Scheduler,
+    context:GameContext,
     players: PlayerState[],
     users: User[],
     config: Config,
@@ -363,21 +363,19 @@ export class Game {
   );
 
   constructor(
-    channelManager: ChannelManager,
-    scheduler: Scheduler,
+    context: GameContext,
     stateText: string
   );
 
   constructor (
-    channelManager: ChannelManager,
-    scheduler: Scheduler,
+    context: GameContext,
     stateOrPlayer: PlayerState[] | string,
     users?: User[],
     config?: Config,
     allChannelId?:ChannelId,
     gameId?: GameId
   ) {
-    this.#channelManager = channelManager
+    this.#context = context
     const isNewGame = typeof users === 'object'
     const reducer = combineReducers<RootState>({
       players: playerSlice.reducer,
@@ -392,7 +390,7 @@ export class Game {
       reducer,
       composeEnhancers(applyMiddleware(sagaMiddleware))
     )
-    sagaMiddleware.run(rootTask, channelManager, scheduler)
+    sagaMiddleware.run(rootTask, context)
 
     if (users && config && allChannelId && stateOrPlayer instanceof Array) {
       const players = stateOrPlayer as PlayerState[]
@@ -415,7 +413,7 @@ export class Game {
   async startGame ():Promise<void> {
     const players = playersSelector(this.getState())
     const werewolfUserIds = players.filter(player => player.Position === 'Werewolf').map(player => player.UserId)
-    const werewolfChannelId = await this.#channelManager.Join(werewolfUserIds)
+    const werewolfChannelId = await this.#context.channelManager.Join(werewolfUserIds)
     this.store.dispatch(addChannel({ id: werewolfChannelId, target: 'Werewolf', users: werewolfUserIds }))
     this.store.dispatch(sendMessage({ target: 'Werewolf', message: { message: 'You are {{position}}', param: { position: 'Werewolf' } } }))
 
@@ -423,7 +421,7 @@ export class Game {
     if (sharerUserIds.length > 0) {
       const groups = chunk(sharerUserIds, 2)
       for (const group of groups) {
-        const shererChannelId = await this.#channelManager.Join(group)
+        const shererChannelId = await this.#context.channelManager.Join(group)
         this.store.dispatch(addChannel({ id: shererChannelId, target: 'Sharer', users: sharerUserIds }))
         this.store.dispatch(sendMessage({ target: 'Sharer', message: { message: 'You are {{position}}', param: { position: 'Sharer' } } }))
       }
@@ -431,7 +429,7 @@ export class Game {
 
     const otherPlayers = players.filter(player => player.Position !== 'Sharer' && player.Position !== 'Werewolf')
     for (const player of otherPlayers) {
-      const channelId = await this.#channelManager.Join([player.UserId])
+      const channelId = await this.#context.channelManager.Join([player.UserId])
       this.store.dispatch(addChannel({ id: channelId, target: [player.UserId], users: [player.UserId] }))
       this.store.dispatch(sendMessage({ target: [player.UserId], message: { message: 'You are {{position}}', param: { position: player.Position } } }))
     }

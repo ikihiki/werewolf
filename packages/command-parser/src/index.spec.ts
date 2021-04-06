@@ -66,6 +66,8 @@ class TestParserContext implements ParserContext, GameContext {
     throw new Error('Method not implemented.')
   }
 
+  shuffleFunc = (users) => users
+
   stateManager: TestStateManager
   scheduler = new TestScheduler()
   channelManager = new TestChannelManager()
@@ -369,7 +371,7 @@ describe('parse', () => {
   it('NewGame', async () => {
     const context = new TestParserContext('1', 'user1', 'main')
     MockDate.set('2021-04-01 00:00:00')
-    await parse('@werewolf NewGame @user1 @user2 @user3 @user4 @user5 @user6 @user7 @user8 @user9 -o 1 -t 1 -k 1 -c 1 -s 2', context, users => users, 'test_game')
+    await parse('@werewolf NewGame @user1 @user2 @user3 @user4 @user5 @user6 @user7 @user8 @user9 -o 1 -t 1 -k 1 -c 1 -s 2', context, 'test_game')
     MockDate.reset()
 
     expect(context.channelManager.channels.get('main')).toStrictEqual([
@@ -628,6 +630,7 @@ describe('parse', () => {
 
   it('senario', async () => {
     const context = new TestParserContext('1', 'user1', 'main')
+    context.shuffleFunc = users => users.reverse()
     const runParse = async (userName: string, room: string, text: string) => {
       const id = context.users.get(userName)
       if (id === undefined) {
@@ -639,7 +642,7 @@ describe('parse', () => {
       await parse(text, context)
     }
     MockDate.set('2021-04-01 09:30:00')
-    await parse('@werewolf NewGame @user1 @user2 @user3 @user4 @user5 @user6 @user7 @user8 @user9 -o 1 -t 1 -k 1 -c 1 -s 2 -d 18:30 -n 09:00 -v PT1H -f PT10M ', context, users => users.reverse(), 'test_game')
+    await parse('@werewolf NewGame @user1 @user2 @user3 @user4 @user5 @user6 @user7 @user8 @user9 -o 1 -t 1 -k 1 -c 1 -s 2 -d 18:30 -n 09:00 -v PT1H -f PT10M ', context, 'test_game')
 
     await runParse('user1', 'main', '@werewolf co taller @user7 citizen')
     await runParse('user3', 'main', '@werewolf co 占い @user9 白')

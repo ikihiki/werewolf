@@ -1,5 +1,4 @@
 import dayjs, { Dayjs } from 'dayjs'
-import { conforms } from 'lodash'
 
 export interface Scheduler {
   SetSchedule: (date: dayjs.Dayjs | undefined) => void;

@@ -31,6 +31,7 @@ export interface GameContext {
   channelManager: ChannelManager;
   scheduler: Scheduler;
   logger: Logger;
+  shuffleFunc?: ShuffleFunc,
 }
 
 function shuffle<T> ([...array]: Array<T>): Array<T> {
@@ -44,16 +45,16 @@ function shuffle<T> ([...array]: Array<T>): Array<T> {
 export const createGame = (
   users: User[],
   config: Config,
-  channelManager: ChannelManager,
-  scheduler: Scheduler,
+  context:GameContext,
   allChannelId: ChannelId,
-  shuffleFunc?: ShuffleFunc,
   gameId?: GameId
 ): Game => {
   gameId = gameId || Date.now().toString()
   const players: PlayerState[] = []
-  shuffleFunc = shuffleFunc || shuffle
-  const shuffledUsers = shuffleFunc([...users])
+  if (context.shuffleFunc === undefined) {
+    context.shuffleFunc = shuffle
+  }
+  const shuffledUsers = context.shuffleFunc?.([...users])
   // werewolf
   for (let i = 0; i < config.numberOfWerewolf; i++) {
     const user = shuffledUsers.pop()
@@ -108,8 +109,7 @@ export const createGame = (
   }
 
   return new Game(
-    channelManager,
-    scheduler,
+    context,
     players,
     users,
     config,
@@ -125,7 +125,7 @@ export const storeGame = (context: GameContext): Game => {
     throw Error('Game is not started.' as ErrorMessage)
   }
 
-  return new Game(context.channelManager, context.scheduler, state)
+  return new Game(context, state)
 }
 
 export const bite = (

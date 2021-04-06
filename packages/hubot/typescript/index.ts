@@ -56,7 +56,7 @@ module.exports = (robot: Robot, channelManagerParam?: ChannelManager, shedulerPa
         removeState: () => robot.brain.remove(stateKey),
         resolveUserId:(userName)=> userName ===undefined?undefined: robot.brain.userForName(userName.replace('@', ''))?.id
 
-    } as Omit< ParserContext, 'reply'| 'messageRoom' | 'messageUserId'| 'messageUserName'>
+    } as Omit< ParserContext, 'reply'| 'messageRoom' | 'messageUserId'| 'messageUserName' | 'shuffleFunc'>
 
     const fireSchedule = () => {
         timeout(context)
@@ -85,6 +85,7 @@ module.exports = (robot: Robot, channelManagerParam?: ChannelManager, shedulerPa
             messageRoom: res.message.room,
             messageUserId: res.message.user.id,
             messageUserName: res.message.user.name,
-        }, shuffleFunc)
+            shuffleFunc
+        })
     })
 }
