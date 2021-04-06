@@ -55,47 +55,71 @@ var pino_1 = __importDefault(require("pino"));
 var werewolf_1 = require("werewolf");
 var command_parser_1 = require("command-parser");
 var dayjs_1 = __importDefault(require("dayjs"));
-var stateKey = 'state';
+var stateKey = "state";
 var logger = pino_1.default();
 module.exports = function (robot, channelManagerParam, shedulerParam, shuffleFunc) {
-    var _a;
     var schedule;
+    var okReaction = function (message) {
+        return __awaiter(this, void 0, void 0, function () {
+            var slack, channel;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        context.logger.info('react to %o', message);
+                        slack = robot.adapter.client.web;
+                        return [4 /*yield*/, slack.reactions.add({
+                                channel: message.room,
+                                name: "heavy_check_mark",
+                                timestamp: message.id,
+                            })];
+                    case 1:
+                        channel = _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
     var context = {
         channelManager: channelManagerParam || {
             Send: function (target, message) {
-                robot.messageRoom(target, command_parser_1.translate(message));
+                var translated = command_parser_1.translate(message);
+                context.logger.debug("send message original: %o text: %s", message, translated);
+                robot.messageRoom(target, translated);
             },
             Join: function (userIds) { return __awaiter(void 0, void 0, void 0, function () {
                 var slack, channel;
                 return __generator(this, function (_a) {
                     switch (_a.label) {
                         case 0:
+                            context.logger.debug("create channel: %o text: %s", userIds);
                             if (!(userIds.length === 1)) return [3 /*break*/, 1];
                             return [2 /*return*/, userIds[0]];
                         case 1:
                             slack = robot.adapter.client.web;
                             return [4 /*yield*/, slack.conversations.open({
-                                    users: userIds.join(',')
+                                    users: userIds.join(","),
                                 })];
                         case 2:
                             channel = _a.sent();
                             return [2 /*return*/, channel.channel.id];
                     }
                 });
-            }); }
+            }); },
         },
         logger: logger,
         scheduler: shedulerParam || {
             SetSchedule: function (date) {
+                context.logger.info("set schedule: %s", date);
                 if (schedule) {
                     schedule.cancel();
                 }
                 if (date !== undefined) {
-                    schedule = node_schedule_1.scheduleJob('job', date.toDate(), function (fire) {
+                    schedule = node_schedule_1.scheduleJob("job", date.toDate(), function (fire) {
+                        context.logger.info("fire schedule: %o", fire);
                         fireSchedule();
                     });
                 }
-            }
+            },
         },
         stateManager: {
             loadState: function () {
@@ -105,29 +129,52 @@ module.exports = function (robot, channelManagerParam, shedulerParam, shuffleFun
                 }
                 return state;
             },
-            saveState: function (state) { return robot.brain.set(stateKey, state); },
-            pushAction: function (action) { return robot.brain.set('a', action); }
+            saveState: function (state) {
+                robot.brain.set(stateKey, state);
+                robot.brain.save();
+            },
+            pushAction: function (action) { return robot.brain.set("a", action); },
         },
         removeState: function () { return robot.brain.remove(stateKey); },
-        resolveUserId: function (userName) { var _a; return userName === undefined ? undefined : (_a = robot.brain.userForName(userName.replace('@', ''))) === null || _a === void 0 ? void 0 : _a.id; }
+        resolveUserId: function (userName) {
+            var _a;
+            return userName === undefined
+                ? undefined
+                : (_a = robot.brain.userForName(userName.replace("@", ""))) === null || _a === void 0 ? void 0 : _a.id;
+        },
     };
     var fireSchedule = function () {
         werewolf_1.timeout(context);
     };
-    var nextPhaseStr = (_a = JSON.parse(robot.brain.get(stateKey))) === null || _a === void 0 ? void 0 : _a.game.NextPhase;
-    if (nextPhaseStr != null) {
-        var nextPhase = dayjs_1.default(nextPhaseStr);
-        if (dayjs_1.default() > nextPhase) {
-            werewolf_1.timeout(context);
-        }
-        else if (schedule == null) {
-            context.scheduler.SetSchedule(nextPhase);
-        }
-    }
     robot.respond(/debug/, function (res) {
-        res.reply(JSON.stringify(robot.brain.get('state'), null, 2));
+        res.reply(JSON.stringify(robot.brain.get("state"), null, 2));
     });
-    robot.respond(/.+/, function (res) {
-        command_parser_1.parse(res.message.text || "", __assign(__assign({}, context), { reply: function (text) { return res.reply(text); }, messageRoom: res.message.room, messageUserId: res.message.user.id, messageUserName: res.message.user.name, shuffleFunc: shuffleFunc }));
-    });
+    robot.respond(/.+/, function (res) { return __awaiter(void 0, void 0, void 0, function () {
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, command_parser_1.parse(res.message.text || "", __assign(__assign({}, context), { reply: function (text) { return res.reply(text); }, messageRoom: res.message.room, messageUserId: res.message.user.id, messageUserName: res.message.user.name, shuffleFunc: shuffleFunc }))];
+                case 1:
+                    _a.sent();
+                    return [4 /*yield*/, okReaction(res.message)];
+                case 2:
+                    _a.sent();
+                    return [2 /*return*/];
+            }
+        });
+    }); });
+    setTimeout(function () {
+        var _a;
+        context.logger.info("initial state : %o", JSON.parse(robot.brain.get(stateKey)));
+        var nextPhaseStr = (_a = JSON.parse(robot.brain.get(stateKey))) === null || _a === void 0 ? void 0 : _a.game.NextPhase;
+        if (nextPhaseStr != null) {
+            context.logger.info("set scheduler for launch");
+            var nextPhase = dayjs_1.default(nextPhaseStr);
+            if (dayjs_1.default() > nextPhase) {
+                werewolf_1.timeout(context);
+            }
+            else if (schedule == null) {
+                context.scheduler.SetSchedule(nextPhase);
+            }
+        }
+    }, 20000);
 };

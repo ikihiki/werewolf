@@ -51,6 +51,7 @@ import { calcrateNextPhase, Scheduler } from './scheduler'
 
 import Immutable from 'immutable'
 import { GameContext } from './service'
+import P from 'pino'
 
 dayjs.extend(duration)
 dayjs.extend(utc)
@@ -193,7 +194,7 @@ function * totalVote (context: GameContext) {
     return
   }
   const targets = countGroup.get(maxCount?.toString())
-  if (targets?.length === 1 && targets[0].key != null) {
+  if (targets?.length === 1 && targets[0].key !== 'null') {
     const target = survivalPlayers.find(
       (player) => player.Id === targets[0].key
     )
@@ -224,12 +225,23 @@ function * totalVote (context: GameContext) {
       }
       yield put(setSchedule({ date: nextPhase }))
     }
-  } else if (targets && targets.length > 1) {
-    yield put(
-      setVoteTargets({ targets: targets?.map((target) => target.key) })
-    )
+  } else if (targets && (targets.length > 1 || targets[0].key === 'null')) {
+    const voteTargetPlayerId =
+      targets[0].key !== 'null'
+        ? targets
+          ?.filter((target) => target.key !== 'null')
+          .map((target) => target.key)
+        : ((yield select(survivalPlayersSelector)) as PlayerState[]).map(player => player.Id)
+    if (voteTargetPlayerId.length < 2 || voteTargetPlayerId.find(playerId => playerId == null) !== undefined) {
+      throw new Error('Something worng')
+    }
+    yield put(setVoteTargets({ targets: voteTargetPlayerId }))
     yield put(resetVote())
-    const targetUsers: UserState[] = yield all(targets.map(target => select(userWithPlayerIdSelector, target.key)))
+    const targetUsers: UserState[] = yield all(
+      voteTargetPlayerId.map((playerId) =>
+        select(userWithPlayerIdSelector, playerId)
+      )
+    )
     yield put(sendMessage({ target: 'All', message: { message: 'Final Vote. subject are {{ users.Name }}', param: { users: targetUsers } } }))
     const config: Config = yield select(configSelector)
     const nextPhase = calcrateNextPhase(dayjs().utc(), config.finalVoteLength)
@@ -427,7 +439,48 @@ export class Game {
       }
     }
 
-    const otherPlayers = players.filter(player => player.Position !== 'Sharer' && player.Position !== 'Werewolf')
+    const fortuneTellers = players.filter(player => player.Position === 'FortuneTeller')
+    for (const fortuneTeller of fortuneTellers) {
+      const channelId = await this.#context.channelManager.Join([
+        fortuneTeller.UserId
+      ])
+      this.store.dispatch(
+        addChannel({
+          id: channelId,
+          target: [fortuneTeller.UserId],
+          users: [fortuneTeller.UserId]
+        })
+      )
+      this.store.dispatch(
+        sendMessage({
+          target: [fortuneTeller.UserId],
+          message: {
+            message: 'You are {{position}}',
+            param: { position: fortuneTeller.Position }
+          }
+        })
+      )
+      const whites = this.#context.shuffleFunc?.(
+        players
+          .filter(player => player.Position !== 'Werewolf' && player.Id !== fortuneTeller.Id)
+          .map(player => userWithPlayerIdSelector(this.getState(), player.Id))
+          .filter((user): user is User => user !== undefined)
+      )
+      if (whites == null || whites.length < 1) {
+        throw new Error('white not found')
+      }
+      this.store.dispatch(
+        sendMessage({
+          target: [fortuneTeller.UserId],
+          message: {
+            message: '{{user.Name}} is {{camp}}',
+            param: { user: whites[0], camp: 'Citizen Side' }
+          }
+        })
+      )
+    }
+
+    const otherPlayers = players.filter(player => player.Position !== 'Sharer' && player.Position !== 'Werewolf' && player.Position !== 'FortuneTeller')
     for (const player of otherPlayers) {
       const channelId = await this.#context.channelManager.Join([player.UserId])
       this.store.dispatch(addChannel({ id: channelId, target: [player.UserId], users: [player.UserId] }))

@@ -14,24 +14,33 @@ i18next.init({
       translation: {
         'Citizen side win!': '市民が勝利しました。',
         "Couldn't find the player.": 'あなたはゲームに参加していません。',
-        "Couldn't find the target.": '指定されたユーザーはゲームに参加していません。',
-        'Final Vote. subject are {{ users.Name }}': '決選投票を行います。対象は{{userIds}}です。',
-        "It's morning. (Day {{day}})": '朝を迎えました。({day}日目)',
+        "Couldn't find the target.":
+          '指定されたユーザーはゲームに参加していません。',
+        'Final Vote. subject are {{ users.Name }}':
+          '決選投票を行います。対象は{{userIds}}です。',
+        "It's morning. (Day {{day}})": '朝を迎えました。({{day}}日目)',
         "It's night, so I can't run it.": '夜フェーズのため実行できません。',
         "It's night.": '夜になりました。',
-        "It's not night, so I can't run it.": '夜フェーズではないため実行できません。',
-        "It's not vote time, so I can't run it.": '投票フェーズではないため実行できません。',
+        "It's not night, so I can't run it.":
+          '夜フェーズではないため実行できません。',
+        "It's not vote time, so I can't run it.":
+          '投票フェーズではないため実行できません。',
         "It's vote time.": '投票の時がやってきました。',
-        'The morning was uneventful.': '誰も殺されることなく、爽やかな朝となりました。',
+        'The morning was uneventful.':
+          '誰も殺されることなく、爽やかな朝となりました。',
         'The next phase is {{date}}': '次のフェーズは{{date}}に始まります。',
         'Werewolf side win!': '人狼が勝利しました。',
         'Wrong channel.': 'このチャンネルでは実行出来ません。',
         'You are {{position}}': 'あなたは”{{position}}”です。',
-        '{{user.Name}} is executed.': '{{user.Id}}は処刑されました。',
-        '{{user.Name}} that was executed was a citizen.': '処刑された{{user.Id}}は市民でした。',
-        '{{user.Name}} that was executed was a werewolf.': '処刑された{{user.Id}}は人狼でした。',
-        '{{user.Name}} was found dead in a heap.': '{{user.Id}}は無残な死体となって発見されました。',
+        '{{user.Name}} is executed.': '<@{{user.Id}}>は処刑されました。',
+        '{{user.Name}} that was executed was a citizen.':
+          '処刑された<@{{user.Id}}>は市民でした。',
+        '{{user.Name}} that was executed was a werewolf.':
+          '処刑された<@{{user.Id}}>は人狼でした。',
+        '{{user.Name}} was found dead in a heap.':
+          '<@{{user.Id}}>は無残な死体となって発見されました。',
         'The werewolf game start': '人狼ゲームを開始します。',
+        '{{user.Name}} is {{camp}}': '<@{{user.Id}}>は{{camp}}です。',
         'Citizen Side': '市民',
         'Werewolf Side': '人狼',
         Citizen: '市民',
@@ -42,8 +51,8 @@ i18next.init({
         Sharer: '共有者',
         Werewolf: '人狼'
       } as {
-          [K in MessageStrings | ErrorMessage | Camp | Position]: string;
-        }
+        [K in MessageStrings | ErrorMessage | Camp | Position]: string;
+      }
     }
   }
 })
@@ -56,7 +65,7 @@ export function translate (message: Message): string {
     return i18next.t(message.message, { date: message.param.date.tz('Asia/Tokyo').format('YYYY年M月D日 HH:mm:ss') })
   }
   if (message.message === 'Final Vote. subject are {{ users.Name }}') {
-    return i18next.t(message.message, { userIds: message.param.users.map(user => user.Id).join(',') })
+    return i18next.t(message.message, { userIds: message.param.users.map(user => `<@${user.Id}>`).join(', ') })
   }
   if (message.param) {
     return i18next.t(message.message, message.param as any)
@@ -300,7 +309,7 @@ export async function parse (value: string, context: ParserContext, gameId?: Gam
             return
           }
           const result = fortune(context, context.messageRoom, context.messageUserId, userId)
-          context.reply(`@${userId}は${result}です。`)
+          context.reply(`@<${userId}>は${result}です。`)
         } catch (e) {
           context.logger.error(e)
           context.reply(translate(e))

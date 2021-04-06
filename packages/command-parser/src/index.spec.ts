@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import { Scheduler, ChannelManager, Message, MessageTarget, ChannelState, Position, timeout, StateManager, GameContext } from 'werewolf'
+import { Scheduler, ChannelManager, Message, MessageTarget, ChannelState, Position, timeout, StateManager, GameContext, User } from 'werewolf'
 import { parse, ParserContext, translate } from './index'
 import * as Immutable from 'immutable'
 import { Report } from 'werewolf/dest/player'
@@ -66,7 +66,7 @@ class TestParserContext implements ParserContext, GameContext {
     throw new Error('Method not implemented.')
   }
 
-  shuffleFunc = (users) => users
+  shuffleFunc = (users: User[]) => users
 
   stateManager: TestStateManager
   scheduler = new TestScheduler()
@@ -546,21 +546,23 @@ describe('parse', () => {
         '次のフェーズは2021年4月1日 18:30:00に始まります。',
         '投票の時がやってきました。',
         '次のフェーズは2021年4月1日 19:30:00に始まります。',
-        '8は処刑されました。',
+        '@8は処刑されました。',
         '次のフェーズは2021年4月2日 09:00:00に始まります。',
-        '朝を迎えました。({day}日目)',
-        '9は無残な死体となって発見されました。',
+        '朝を迎えました。(2日目)',
+        '@9は無残な死体となって発見されました。',
         '次のフェーズは2021年4月2日 18:30:00に始まります。',
         '投票の時がやってきました。',
         '次のフェーズは2021年4月2日 19:30:00に始まります。',
-        '4は処刑されました。',
+        '@4は処刑されました。',
         '次のフェーズは2021年4月3日 09:00:00に始まります。',
-        '朝を迎えました。({day}日目)',
+        '朝を迎えました。(3日目)',
         '誰も殺されることなく、爽やかな朝となりました。',
         '次のフェーズは2021年4月3日 18:30:00に始まります。',
         '投票の時がやってきました。',
         '次のフェーズは2021年4月3日 19:30:00に始まります。',
-        '7は処刑されました。',
+        '決選投票を行います。対象は@1, @2, @3, @5, @6, @7です。',
+        '次のフェーズは2021年4月3日 19:40:00に始まります。',
+        '@7は処刑されました。',
         '次のフェーズは2021年4月4日 09:00:00に始まります。',
         '人狼が勝利しました。'
       ]
@@ -581,6 +583,7 @@ describe('parse', () => {
       '3',
       [
         'あなたは”占い師”です。',
+        '@9はCitizen Sideです。',
         '@6はCitizen Sideです。',
         '@5はCitizen Sideです。',
         '@1はWerewolf Sideです。'
@@ -596,9 +599,9 @@ describe('parse', () => {
       '5',
       [
         'あなたは”霊媒師”です。',
-        '処刑された8は市民でした。',
-        '処刑された4は市民でした。',
-        '処刑された7は市民でした。'
+        '処刑された@8は市民でした。',
+        '処刑された@4は市民でした。',
+        '処刑された@7は市民でした。'
       ]
     ],
     [
@@ -624,6 +627,7 @@ describe('parse', () => {
     '2021-04-03T00:00:00.000Z',
     '2021-04-03T09:30:00.000Z',
     '2021-04-03T10:30:00.000Z',
+    '2021-04-03T10:40:00.000Z',
     '2021-04-04T00:00:00.000Z',
     null
   ]

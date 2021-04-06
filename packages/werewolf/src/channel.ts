@@ -1,6 +1,6 @@
 import { createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { Dayjs } from 'dayjs'
-import { Position } from './player'
+import { Camp, Position } from './player'
 import { User, UserId } from './user'
 import * as Immutable from 'immutable'
 import { OmitByValue, PickByValue, ValuesType } from 'utility-types'
@@ -19,7 +19,8 @@ type MessageTemplate = {
   'It\'s vote time.':undefined
   'Final Vote. subject are {{ users.Name }}':{ users: User[] }
   'The next phase is {{date}}':{ date: Dayjs }
-  'The werewolf game start': undefined
+  'The werewolf game start': undefined,
+  '{{user.Name}} is {{camp}}': {user:User, camp: Camp}
 }
 export type MessageStrings = keyof MessageTemplate
 type HasParamMessage = OmitByValue<MessageTemplate, undefined>
